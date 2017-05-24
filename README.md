@@ -1,2 +1,6 @@
-# CSGO-Touchdown
-"Touchdown" is a gamemode from S4 League.
+# CSGO Touchdown
+"Touchdown" is a gamemode from S4 League.  
+I will release this to public after I finish this in the future... (maybe?)
+
+## Video Preview:
+[![video](https://img.youtube.com/vi/lxwePATJQUc/0.jpg)](https://www.youtube.com/watch?v=lxwePATJQUc)
