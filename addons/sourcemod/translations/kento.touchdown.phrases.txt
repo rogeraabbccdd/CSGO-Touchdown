@@ -1,0 +1,538 @@
+//**********************************************  Valid Colors	********************************************************
+// {NORMAL}, {DARKRED}, {PINK}, {YELLOW}, {GREEN}, {LIGHTGREEN}, {RED}, {GRAY}, {BLUE}, {DARKBLUE}, {PURPLE}, {ORANGE} *
+//**********************************************************************************************************************
+//                                     http://i.imgur.com/q2wb8Cu.png                                                  *
+//{NORMAL} = x01 | {DARKRED} = x02 | {PINK} = x03 | {GREEN} = x04 | {YELLOW} = x09 | {LIGHTGREEN} = x06 | {RED} = x07  *
+//{GRAY} = x08 | {BLUE} = x0B | {DARKBLUE} = x0C | {PURPLE} = x0E|  {ORANGE} = x10                                     *
+//**********************************************************************************************************************
+"Phrases"
+{
+	"Touchdown T"
+	{
+		"#format"		"{1:s}"
+		"en"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}Touchdown!"
+		"zho"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}達陣!"
+	}
+	
+	"Touchdown CT"
+	{
+		"#format"		"{1:s}"
+		"en"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}Touchdown!"
+		"zho"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}達陣!"
+	}
+	
+	"BGM 1"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Forte Escape - Chain Reaction"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Forte Escape - Chain Reaction"
+	}
+	
+	"BGM 2"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - Super Sonic"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - Super Sonic"
+	}
+	
+	"BGM 3"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Bexter - Nova"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Bexter - Nova"
+	}
+	
+	"BGM 4"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}S4 League - Lobby"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}S4 League - Lobby"
+	}
+	
+	"BGM 5"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - Dual Rock"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - Dual Rock"
+	}
+	
+	"BGM 6"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Forte Escape - Move Your Spirit"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Forte Escape - Move Your Spirit"
+	}
+	
+	"BGM 7"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - Fuzzy Control"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - Fuzzy Control"
+	}
+	
+	"BGM 8"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}S4 League - Seize"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}S4 League - Seize"
+	}
+	
+	"Volume 1"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}Volume values must be {RED}0.2 - 1.0"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}音量大小限制為 {RED}0.2 - 1.0"
+	}
+	
+	"Volume 2"
+	{
+		"#format"		"{1:.2f}"
+		"en"			"{GREEN}[Touch Down] {NORMAL}Volume is set to {PINK}{1}"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}音量設定為 {PINK}{1}"
+	}
+	
+	"Respawn 2"
+	{
+		"#format"		"{1:.1f}"
+		"en"			"{GREEN}[Touch Down] {NORMAL}Respawn In {PINK}{1} {NORMAL}Seconds"
+		"zho"			"{GREEN}[Touch Down] {PINK}{1} 秒{NORMAL}後重生"
+	}
+	
+	"3 Minutes Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}3 Minutes Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 三分鐘"
+	}
+	
+	"1 Minute Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}1 Minute Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 一分鐘"
+	}
+	
+	"30 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}30 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 30 秒"
+	}
+	
+	"10 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}10 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 10 秒"
+	}
+	
+	"9 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}9 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 9 秒"
+	}
+	
+	"8 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}8 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 8 秒"
+	}
+	
+	"7 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}7 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 7 秒"
+	}
+	
+	"6 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}6 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 6 秒"
+	}
+	
+	"5 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}5 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 5 秒"
+	}
+	
+	"4 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}4 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 4 秒"
+	}
+	
+	"3 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}3 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 3 秒"
+	}
+	
+	"2 Seconds Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}2 Seconds Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 2 秒"
+	}
+	
+	"1 Second Left"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}1 Second Left."
+		"zho"			"{GREEN}[Touch Down] {RED}回合時間剩下 1 秒"
+	}
+	
+	"Time Is Up"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}Time Is Up!!"
+		"zho"			"{GREEN}[Touch Down] {RED}時間到!!"
+	}
+	
+	"Lose"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}You Are The Loser!"
+		"zho"			"{GREEN}[Touch Down] {RED}你輸了這場比賽!"
+	}
+	
+	"Win"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {BLUE}You Are The Winner!"
+		"zho"			"{GREEN}[Touch Down] {BLUE}你贏了這場比賽!"
+	}
+	
+	"Draw"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {BLUE}Match Draw."
+		"zho"			"{GREEN}[Touch Down] {BLUE}比賽平手."
+	}
+	
+	"Reset"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {LIGHTGREEN}The ball has been reset."
+		"zho"			"{GREEN}[Touch Down] {LIGHTGREEN}球已重置."
+	}
+	
+	"Get Ball T"
+	{
+		"#format"		"{1:s}"
+		"en"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}Get The Ball!"
+		"zho"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}搶到球!"
+	}
+	
+	"Get Ball CT"
+	{
+		"#format"		"{1:s}"
+		"en"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}Get The Ball!"
+		"zho"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}搶到球!"
+	}
+	
+	"Drop Ball T"
+	{
+		"#format"		"{1:s}"
+		"en"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}Drop The Ball!"
+		"zho"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}的球掉了!"
+	}
+	
+	"Drop Ball CT"
+	{
+		"#format"		"{1:s}"
+		"en"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}Drop The Ball!"
+		"zho"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}的球掉了!"
+	}
+	
+	"Kill Ball T"
+	{
+		"#format"		"{1:s},{2:s}"
+		"en"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}Kill The Ball Holder {BLUE}{2}!"
+		"zho"			"{GREEN}[Touch Down] {ORANGE}{1} {LIGHTGREEN}擊殺了拿著球的 {BLUE}{2}!"
+	}
+	
+	"Kill Ball CT"
+	{
+		"#format"		"{1:s},{2:s}"
+		"en"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}Kill The Ball Holder {ORANGE}{2}!"
+		"zho"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}擊殺了拿著球的 {ORANGE}{2}!"
+	}
+	
+//**********************************************************************************************************************
+	
+	"Acquired Ball"
+	{
+		"#format"		""
+		"en"			"<font color='#6087EA' size='25'>Our Team Acquired Ball!</font> \nGo to the rival teams goal post!"
+		"zho"			"<font color='#6087EA' size='25'>搶到球!</font> \n前往敵隊的球門!"
+	}
+	
+	"Rival Acquired Ball"
+	{
+		"#format"		""
+		"en"			"<font color='#ff541b' size='25'>Rival Team Acquired The Ball!</font> \nDefand the our teams goal post!"
+		"zho"			"<font color='#ff541b' size='25'>敵隊搶到球!</font> \n防禦我方的球門!"	
+	}
+	
+	"Rival Team Drop"
+	{
+		"#format"		""
+		"en"			"<font color='#ff541b' size='25'>Rival Team Missed The Ball!</font>"
+		"zho"			"<font color='#ff541b' size='25'>敵方的球掉落了!</font>"
+	}
+	
+	"Team Drop"
+	{
+		"#format"		""
+		"en"			"<font color='#6087EA' size='25'>Our Team Missed The Ball!</font>"
+		"zho"			"<font color='#6087EA' size='25'>我方的球掉落了!</font>"
+	}
+	
+	"Reset Hint"
+	{
+		"#format"		""
+		"en"			"<font color='#28FF28' size='25'>The ball has been reset.</font>"
+		"zho"			"<font color='#28FF28' size='25'>球已重置.</font>"
+	}
+	
+	"Start Game"
+	{
+		"#format"		""
+		"en"			"<font color='#28FF28' size='25'>Start Game!</font>"
+		"zho"			"<font color='#28FF28' size='25'>回合開始!</font>"
+	}
+	
+	"Respawn"
+	{
+		"#format"		"{1:.1f}"
+		"en"			"<font color='#28FF28' size='25'>Respawn In {1} Seconds</font>"
+		"zho"			"<font color='#28FF28' size='25'>{1} 秒後重生</font>"
+	}
+	
+	"Time Is Up Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>Time Is Up!!</font>"
+		"zho"			"<font size='50' color='#FF0000'>時間到!!</font>"
+	}
+	
+	"3 Minutes Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='25' color='#FF0000'>3 Minutes Left</font>"
+		"zho"			"<font size='25' color='#FF0000'>回合時間剩下 三分鐘</font>"
+	}
+	
+	"1 Minute Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='25' color='#FF0000'>1 Minute Left</font>"
+		"zho"			"<font size='25' color='#FF0000'>回合時間剩下 一分鐘</font>"
+	}
+	
+	"30 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='25' color='#FF0000'>30 Seconds Left</font>"
+		"zho"			"<font size='25' color='#FF0000'>回合時間剩下 30 秒</font>"
+	}
+	
+	"10 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>10</font>"
+		"zho"			"<font size='50' color='#FF0000'>10</font>"
+	}
+	
+	"9 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>9</font>"
+		"zho"			"<font size='50' color='#FF0000'>9</font>"
+	}
+	
+	"8 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>8</font>"
+		"zho"			"<font size='50' color='#FF0000'>8</font>"
+	}
+	
+	"7 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>7</font>"
+		"zho"			"<font size='50' color='#FF0000'>7</font>"
+	}
+	
+	"6 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>6</font>"
+		"zho"			"<font size='50' color='#FF0000'>6</font>"
+	}
+	
+	"5 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>5</font>"
+		"zho"			"<font size='50' color='#FF0000'>5</font>"
+	}
+	
+	"4 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>4</font>"
+		"zho"			"<font size='50' color='#FF0000'>4</font>"
+	}
+	
+	"3 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>3</font>"
+		"zho"			"<font size='50' color='#FF0000'>3</font>"
+	}
+	
+	"2 Seconds Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>2</font>"
+		"zho"			"<font size='50' color='#FF0000'>2</font>"
+	}
+	
+	"1 Second Left Hint"
+	{
+		"#format"		""
+		"en"			"<font size='50' color='#FF0000'>1</font>"
+		"zho"			"<font size='50' color='#FF0000'>1</font>"
+	}
+	
+	"Next Round In"
+	{
+		"#format"		""
+		"en"			"Next Round In..."
+		"zho"			"下回合即將開始..."
+	}
+	
+	"Next Round In 5"
+	{
+		"#format"		""
+		"en"			"Next Round In...5"
+		"zho"			"下回合即將開始...5"
+	}
+	
+	"Next Round In 4"
+	{
+		"#format"		""
+		"en"			"Next Round In...4"
+		"zho"			"下回合即將開始...4"
+	}
+	
+	"Next Round In 3"
+	{
+		"#format"		""
+		"en"			"Next Round In...3"
+		"zho"			"下回合即將開始...3"
+	}
+	
+	"Next Round In 2"
+	{
+		"#format"		""
+		"en"			"Next Round In...2"
+		"zho"			"下回合即將開始...2"
+	}
+	
+	"Next Round In 1"
+	{
+		"#format"		""
+		"en"			"Next Round In...1"
+		"zho"			"下回合即將開始...1"
+	}
+	
+	"Lose Hint"
+	{
+		"#format"		""
+		"en"			"<font color='#ff541b' size='25'>You Are The Loser!</font>"
+		"zho"			"<font color='#ff541b' size='25'>你輸了這場比賽!</font>"
+	}
+	
+	"Win Hint"
+	{
+		"#format"		""
+		"en"			"<font color='#6087EA' size='25'>You Are The Winner!</font>"
+		"zho"			"<font color='#6087EA' size='25'>你贏了這場比賽!</font>"
+	}
+	
+	"Draw Hint"
+	{
+		"#format"		""
+		"en"			"<font color='#6087EA' size='25'>Match Draw!</font>"
+		"zho"			"<font color='#6087EA' size='25'>比賽平手!</font>"
+	}
+	
+//**********************************************************************************************************************
+
+	"Weapon Menu"
+	{
+		"#format"		""
+		"en"			"Weapon Menu"
+		"zho"			"武器選單"
+	}
+	
+	"New Weapons"
+	{
+		"#format"		""
+		"en"			"New Weapons"
+		"zho"			"選擇新武器"
+	}
+	
+	"Last Weapons"
+	{
+		"#format"		""
+		"en"			"Last Weapons"
+		"zho"			"選擇上一次的武器"
+	}
+	
+	"Last Weapons All The Time"
+	{
+		"#format"		""
+		"en"			"Last Weapons All The Time"
+		"zho"			"每次都選擇上一次的武器"
+	}
+	
+	"Random Weapons"
+	{
+		"#format"		""
+		"en"			"Random Weapons"
+		"zho"			"隨機武器"
+	}
+	
+	"Primary Weapon"
+	{
+		"#format"		""
+		"en"			"Primary Weapon"
+		"zho"			"主要武器"
+	}
+	
+	"Secondary Weapon"
+	{
+		"#format"		""
+		"en"			"Secondaryy Weapon"
+		"zho"			"次要武器"
+	}
+	
+	"Random Weapons All The Time"
+	{
+		"#format"		""
+		"en"			"Random Weapons All The Time"
+		"zho"			"每次都選擇隨機武器"
+	}
+}	
