@@ -628,6 +628,8 @@ public void OnMapStart()
 	// Download Particle
 	AddFileToDownloadsTable(ParticlePath);
 	AddFileToDownloadsTable(ParticlePath2);
+	AddFileToDownloadsTable("materials/ex/gl.vmt");
+	AddFileToDownloadsTable("materials/ex/gl.vtf");
 			
 	// Precache Sound
 	// https://wiki.alliedmods.net/Csgo_quirks
