@@ -5,6 +5,9 @@
 // Fix sm_ballreset.
 // Fix ball bounce sound.
 //
+// 1.2
+// Fix bugs.
+//
 // To do
 // Add Mysql stats
 //
@@ -268,7 +271,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "1.1",
+	version = "1.2",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -790,10 +793,10 @@ public Action Event_ItemPickUp(Handle event, const char[] name, bool dontBroadca
 public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
-	CreateTimer(0.1, ShowWeaponMenu, client);
 	
 	if (IsValidClient(client) && !IsFakeClient(client))
 	{	
+		CreateTimer(0.1, ShowWeaponMenu, client);
 		EmitSoundToClient(client, "*/touchdown/player_respawn.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 	}
 }
@@ -1900,7 +1903,7 @@ public void OnStartTouch(int ent, int client)
 			return;
 		
 		// Client get the ball
-		if(BallHolder == 0 && IsPlayerAlive(client) && IsValidClient(client))
+		if(BallHolder == 0 && IsPlayerAlive(client) && IsValidEntity(client))
 		{
 			GetBall(client);
 		}
@@ -2076,7 +2079,7 @@ public void OnStartTouch(int ent, int client)
 	if (StrEqual(Item, "CTGoalPole"))
 	{
 		// And he has a ball.
-		if(GetClientTeam(client) == TR && BallHolder == client && IsValidClient(client))
+		if(GetClientTeam(client) == TR && BallHolder == client && IsValidEntity(client))
 		{
 			OnTeamWin(CS_TEAM_T);
 
@@ -2106,7 +2109,7 @@ public void OnStartTouch(int ent, int client)
 	if (StrEqual(Item, "TGoalPole"))
 	{
 		// And he has a ball.
-		if(GetClientTeam(client) == CT && BallHolder == client && IsValidClient(client))
+		if(GetClientTeam(client) == CT && BallHolder == client && IsValidEntity(client))
 		{
 			OnTeamWin(CS_TEAM_CT);
 			
@@ -3016,7 +3019,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 				hRAcquiredBallText[i] = INVALID_HANDLE;
 				
 				// Not suicide
-				if(client != attacker && IsValidClient(client))
+				if(client != attacker && IsValidClient(client) && IsValidClient(attacker))
 				{
 					if(GetClientTeam(attacker) == TR)
 						CPrintToChat(i, "%T", "Kill Ball T", i, attackername, clientname);
