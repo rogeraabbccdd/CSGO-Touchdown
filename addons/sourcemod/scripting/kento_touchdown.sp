@@ -11,6 +11,10 @@
 // 1.3
 // Fix bugs.
 //
+// 1.4
+// Fix bugs.
+// All players can't fire weapon and move if time is up.
+//
 // To do
 // Add Mysql stats
 //
@@ -274,7 +278,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "1.3",
+	version = "1.4",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -800,6 +804,7 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 	if (IsValidClient(client) && !IsFakeClient(client))
 	{	
 		CreateTimer(0.1, ShowWeaponMenu, client);
+		CreateTimer(0.1, FreezeClient, client);
 		EmitSoundToClient(client, "*/touchdown/player_respawn.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 	}
 }
@@ -2081,11 +2086,17 @@ public void OnStartTouch(int ent, int client)
 	// Someone Go to CT Goal
 	if (StrEqual(Item, "CTGoalPole"))
 	{
-		// And he has a ball.
+		// And he is T and he has a ball.
 		if(GetClientTeam(client) == TR && BallHolder == client && IsValidEntity(client))
 		{
+			// Touchdown is not allowed if time is up
+			if(RoundEnd)
+				return;
+			
+			// T Win
 			OnTeamWin(CS_TEAM_T);
-
+			
+			// Give player 1 MVP star
 			CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
 			
 			// Remove ball
@@ -2099,23 +2110,26 @@ public void OnStartTouch(int ent, int client)
 			{
 				if (IsValidClient(i) && !IsFakeClient(i)) 
 				{
-					if (GetClientTeam(client) == TR) 
-						CPrintToChat(i, "%T", "Touchdown CT", i, clientname);
+					CPrintToChat(i, "%T", "Touchdown T", i, clientname);
 				}
 			}
-			
-			RoundEnd = true;
 		}
 	}
 	
 	// Someone Go to T Goal
 	if (StrEqual(Item, "TGoalPole"))
 	{
-		// And he has a ball.
+		// And he is CT and he has a ball.
 		if(GetClientTeam(client) == CT && BallHolder == client && IsValidEntity(client))
 		{
-			OnTeamWin(CS_TEAM_CT);
+			// Touchdown is not allowed if time is up
+			if(RoundEnd)
+				return;
 			
+			// CT Win
+			OnTeamWin(CS_TEAM_CT);
+
+			// Give player 1 MVP star
 			CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
 			
 			// Remove ball
@@ -2128,10 +2142,10 @@ public void OnStartTouch(int ent, int client)
 			for (i = 1; i <= MaxClients; i++)
 			{
 				if (IsValidClient(i) && !IsFakeClient(i)) 
-					CPrintToChat(i, "%T", "Touchdown T", i, clientname);
+				{
+					CPrintToChat(i, "%T", "Touchdown CT", i, clientname);
+				}
 			}
-			
-			RoundEnd = true;
 		}
 	}
 }
@@ -2189,6 +2203,8 @@ void CreateTGoalParticle()
 
 void OnTeamWin(int team)
 {
+	RoundEnd = true;
+	
 	if(team == CS_TEAM_CT)
 	{
 		SetTeamScore(CS_TEAM_CT, GetTeamScore(CS_TEAM_CT) + 1);
@@ -2693,15 +2709,21 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				PrintHintText(i, "%T", "Time Is Up Hint", i);
 				CPrintToChat(i, "%T", "Time Is Up", i);
 				EmitSoundToClient(i, "*/touchdown/inter_timeover.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				
+				// Freeze player if time is up
+				if(GetClientTeam(i) != SPEC)
+					SetEntityMoveType(i, MOVETYPE_NONE);
 			}
 		}
 	}
+	// Round NOT draw
 	else
 	{
 		for (i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
+				// No sound and overlay for SPEC..
 				if(GetClientTeam(i) == SPEC)
 					continue;
 				
@@ -2710,7 +2732,6 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				{
 					SetClientOverlay(i, "touchdown/touchdown_green");
 					
-					// TR lead 1 point
 					if(score_t - score_ct == 1)
 					{
 						switch(GetRandomInt(1,2))
@@ -3466,8 +3487,7 @@ public Action Command_Join(int client, const char[] command, int argc)
 		
 		CS_RespawnPlayer(client);
 		
-		if(RoundEnd)
-			CreateTimer(0.1, FreezeClient, client);
+		CreateTimer(0.1, FreezeClient, client);
 		
 		// Someone is holding the ball
 		if(BallHolder != 0)
@@ -3740,6 +3760,6 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 
 public Action FreezeClient(Handle tmr, any client)
 {
-	if (IsValidClient(client) && !IsFakeClient(client))
+	if (IsValidClient(client) && !IsFakeClient(client) && RoundEnd)
 		SetEntityMoveType(client, MOVETYPE_NONE);
 }
