@@ -3034,9 +3034,6 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 
 public Action Respawn_Player(Handle tmr, any client)
 {
-	if(RoundEnd)
-		return;
-		
 	if(IsClientInGame(client) && !IsPlayerAlive(client) && (GetClientTeam(client) != SPEC))
 	{
 		CS_RespawnPlayer(client);
@@ -3464,12 +3461,10 @@ public Action Command_Join(int client, const char[] command, int argc)
 		SetEntProp(client, Prop_Send, "m_iTeamNum", iJoining);
 		ForcePlayerSuicide(client);
 		
-		if(!RoundEnd)
-		{
-			CS_RespawnPlayer(client);
-		}
-		// No need to respawn player after round end
+		CS_RespawnPlayer(client);
 		
+		if(RoundEnd)
+			CreateTimer(0.1, FreezeClient, client);
 		
 		// Someone is holding the ball
 		if(BallHolder != 0)
@@ -3730,5 +3725,18 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		buttons &= ~IN_ATTACK;
 		return Plugin_Changed;
     }
+    
+    if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK2)
+    {
+		buttons &= ~IN_ATTACK2;
+		return Plugin_Changed;
+    }
+    
 	else return Plugin_Continue;
+}
+
+public Action FreezeClient(Handle tmr, any client)
+{
+	if (IsValidClient(client) && !IsFakeClient(client))
+		SetEntityMoveType(client, MOVETYPE_NONE);
 }
