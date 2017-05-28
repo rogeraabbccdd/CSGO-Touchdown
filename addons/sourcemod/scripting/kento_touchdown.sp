@@ -8,6 +8,9 @@
 // 1.2
 // Fix bugs.
 //
+// 1.3
+// Fix bugs.
+//
 // To do
 // Add Mysql stats
 //
@@ -271,7 +274,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "1.2",
+	version = "1.3",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
