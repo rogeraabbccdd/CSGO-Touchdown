@@ -278,7 +278,7 @@
 	"Rival Acquired Ball"
 	{
 		"#format"		""
-		"en"			"<font color='#ff541b' size='25'>Rival Team Acquired The Ball!</font> \nDefand the our teams goal post!"
+		"en"			"<font color='#ff541b' size='25'>Rival Team Acquired The Ball!</font> \nDefend the our teams goal post!"
 		"zho"			"<font color='#ff541b' size='25'>敵隊搶到球!</font> \n防禦我方的球門!"	
 	}
 	

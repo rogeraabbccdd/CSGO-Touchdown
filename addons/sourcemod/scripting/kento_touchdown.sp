@@ -1,4 +1,11 @@
-// Change sm_slay team to freeze everyone? (like original S4) or use ForcePlayerSuicide
+// Changelog
+// 1.1
+// Freeze all players except who touchdown in round end. (like original S4)
+// Only the player who touchdown can fire his weapon in round end. (like original S4)
+// Fix sm_ballreset.
+// Fix ball bounce sound.
+//
+// To do
 // Add Mysql stats
 //
 // Maybe we can add
@@ -139,6 +146,7 @@ int BallModel;
 int BallHolder;
 int PlayerBallModel;
 int DropBallModel;
+int Touchdowner;
 
 int BallDroperTeam;
 
@@ -260,7 +268,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "1.0",
+	version = "1.1",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -268,6 +276,7 @@ public Plugin myinfo =
 public void OnPluginStart() 
 {
 	RegAdminCmd("sm_resetball", Command_ResetBall, ADMFLAG_GENERIC, "Reset Ball");
+	RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
 	
 	RegConsoleCmd("sm_guns", Command_Weapon, "Weapon Menu");
 	
@@ -364,6 +373,7 @@ public void Restart_Handler(Handle convar, const char[] oldValue, const char[] n
 		score_t2 = 0;
 		score_ct2 = 0;
 		Switch = false;
+		Touchdowner = 0;
     }
 }
 
@@ -1137,6 +1147,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	// Reset ball holder
 	BallHolder = 0;
 	BallDroperTeam = 0;
+	Touchdowner = 0;
 	
 	// Reset timer
 	ResetTimer();
@@ -1148,7 +1159,11 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
 			CreateTimer(1.0, StartGameTimer);
-				
+			
+			// Unfreeze players
+			if (GetClientTeam(i) == CT || GetClientTeam(i) == TR) 
+				SetEntityMoveType(i, MOVETYPE_WALK);
+			
 			switch(GetRandomInt(1, 2))
 			{
 				case 1:
@@ -1644,7 +1659,7 @@ public Action NextRoundCountdown(Handle tmr)
 {
 	--Nextroundtime;
     
-    // Half time
+    // We don't need this in Half time
 	if (Switch)
 	{
 		KillTimer(hNextRoundCountdown);
@@ -2063,17 +2078,6 @@ public void OnStartTouch(int ent, int client)
 		// And he has a ball.
 		if(GetClientTeam(client) == TR && BallHolder == client && IsValidClient(client))
 		{
-			// SlayLoser, Force round end.
-			ServerCommand("sm_slay @ct");
-			
-			/*
-			for (i = 1; i <= MaxClients; i++)
-			{
-				if(GetClientTeam(i) == CT && IsValidClient(i))
-					ForcePlayerSuicide(i);
-			}
-			*/
-			
 			OnTeamWin(CS_TEAM_T);
 
 			CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
@@ -2104,17 +2108,6 @@ public void OnStartTouch(int ent, int client)
 		// And he has a ball.
 		if(GetClientTeam(client) == CT && BallHolder == client && IsValidClient(client))
 		{
-			// SlayLoser, Force round end.
-			ServerCommand("sm_slay @t");
-			
-			/*
-			for (i = 1; i <= MaxClients; i++)
-			{
-				if(GetClientTeam(i) == TR && IsValidClient(i))
-					ForcePlayerSuicide(i);
-			}
-			*/
-			
 			OnTeamWin(CS_TEAM_CT);
 			
 			CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
@@ -2577,6 +2570,7 @@ void GoalBall(int client)
 	
 	BallHolder = 0;
 	BallDroperTeam = 0;
+	Touchdowner = client;
 	
 	int i;
 	for (i = 1; i <= MaxClients; i++)
@@ -2594,6 +2588,10 @@ void GoalBall(int client)
 				KillTimer(hRAcquiredBallText[i]);
 			}
 			hRAcquiredBallText[i] = INVALID_HANDLE;
+			
+			// Freeze all player except player who touchdown like S4
+			if(GetClientTeam(i) != SPEC && i != client)
+				SetEntityMoveType(i, MOVETYPE_NONE);
 		}
 	}
 }
@@ -2981,7 +2979,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		}
 	}
 	
-	// Force thirdperson to prevent sound vol low (sound from player is fucking stupid)
+	// Force thirdperson to prevent sound vol low? (sound from player is fucking stupid)
 	// SetEntPropEnt(client, Prop_Send, "m_iObserverMode", 5);
             
 	// Kill Ball Holder
@@ -3105,6 +3103,7 @@ void ResetBall()
 	// Reset Ball Holder
 	BallHolder = 0;
 	BallDroperTeam = 0;
+	Touchdowner = 0;
 	
 	// Spawn Ball
 	SpawnBall();
@@ -3118,6 +3117,7 @@ void ResetBall()
 			//ClientCommand(i, "play *touchdown/_eu_ball_reset.mp3");
 			EmitSoundToClient(i, "*/touchdown/_eu_ball_reset.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
 			
+			// Remove hint text
 			if(hAcquiredBallText[i] != INVALID_HANDLE)
 			{
 				KillTimer(hAcquiredBallText[i]);
@@ -3155,6 +3155,9 @@ public Action Command_ResetBall(int client,int args)
 		KillTimer(hResetBallTimer);
 		hResetBallTimer = INVALID_HANDLE;
 	}
+	ResetBall();
+	
+	return Plugin_Handled;
 }
 
 stock bool IsValidClient(int client)
@@ -3176,32 +3179,13 @@ public Action Command_Weapon(int client,int args)
 
 public Action Command_Test(int client,int args)
 {
+	if(RoundEnd)
+		PrintToChat(client, "Round End");
 	
-	/*
-	PrintToChat(client, "%i", BGM);
-	
-	if(hBGMTimer[client] == INVALID_HANDLE)
-		PrintToChat(client, "INVALID_HANDLE");
-		
-	if(hBGMTimer[client] != INVALID_HANDLE)
-		PrintToChat(client, "VALID_HANDLE");
-		
-	PrintToChat(client, "%f", ftd_respawn);
-	PrintToChat(client, "%f", ftd_reset);
-	
-	if(hAcquiredBallText[client] != INVALID_HANDLE)
-		PrintToChat(client, "hAcquiredBllText");
-		
-	if(hAcquiredBallText [client]== INVALID_HANDLE)
-		PrintToChat(client, "hAcquiredBallText INVALID_HANDLE");
-		
-	if(hRAcquiredBallText[client] == INVALID_HANDLE)
-		PrintToChat(client, "hRAcquiredBallText INVALID_HANDLE");
-		
-	if(hRAcquiredBallText[client] != INVALID_HANDLE)
-		PrintToChat(client, "hRAcquiredBallText INVALID_HANDLE");
-	*/
+	if(client != Touchdowner)
+		PrintToChat(client, "No touchdowner");
 }
+
 
 // Match End
 public Action Event_WinPanelMatch(Handle event, const char[] name, bool dontBroadcast)
@@ -3344,6 +3328,7 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 		RoundEnd = false;
 		BallHolder = 0;
 		BallDroperTeam = 0;
+		Touchdowner = 0;
 	}
 }  
 
@@ -3457,14 +3442,23 @@ public Action Command_Join(int client, const char[] command, int argc)
 	if(BallHolder == client)
 		DropBall(client);
 	
+	// Join spec
 	if(iJoining == CS_TEAM_SPECTATOR)
 	{
+		// Unfreeze if player join spec after someone touchdown
+		if(RoundEnd)
+			SetEntityMoveType(client, MOVETYPE_NOCLIP);
+			
 		return Plugin_Continue;
 	}
 
 	int iTeam = GetClientTeam(client);
+	
+	// Join same team
 	if(iJoining == iTeam)
 		return Plugin_Handled;
+	
+	// Join different team
 	else
 	{
 		SetEntProp(client, Prop_Send, "m_iTeamNum", iJoining);
@@ -3474,6 +3468,8 @@ public Action Command_Join(int client, const char[] command, int argc)
 		{
 			CS_RespawnPlayer(client);
 		}
+		// No need to respawn player after round end
+		
 		
 		// Someone is holding the ball
 		if(BallHolder != 0)
@@ -3692,7 +3688,7 @@ public Action Event_SoundPlayed(int clients[64], int &numClients, char sample[PL
 		for (j = 1; j <= MaxClients; j++)
 		{
 			if (IsValidClient(j) && !IsFakeClient(j))
-				EmitSoundToClient(j, "*/touchdown/pokeball_bounce.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[j]);
+				EmitSoundToClient(j, "*/touchdown/pokeball_bounce.mp3", entity, SNDCHAN_STATIC, _, _, g_fvol[j]);
 		}
 		
 		return Plugin_Handled;
@@ -3708,6 +3704,7 @@ public Action Event_HalfTime(Handle event, const char[] name, bool dontBroadcast
 	Switch = true;
 }
 
+// Block player use "e" to pick up weapon.
 public Action OnWeaponCanUse(int client, int weapon) 
 {
     if(GetClientButtons(client) & IN_USE)
@@ -3716,6 +3713,7 @@ public Action OnWeaponCanUse(int client, int weapon)
     return Plugin_Continue; 
 }
 
+// Block player drop weapon.
 public Action OnWeaponDrop(int client, int weapon) 
 {
     if(GetClientButtons(client) & IN_USE)
@@ -3723,3 +3721,14 @@ public Action OnWeaponDrop(int client, int weapon)
     
     return Plugin_Continue; 
 }  
+
+// https://forums.alliedmods.net/showpost.php?p=2514392&postcount=2
+public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
+{
+    if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK)
+    {
+		buttons &= ~IN_ATTACK;
+		return Plugin_Changed;
+    }
+	else return Plugin_Continue;
+}
