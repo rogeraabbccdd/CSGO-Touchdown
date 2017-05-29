@@ -15,6 +15,15 @@
 // Fix bugs.
 // All players can't fire weapon and move if time is up.
 //
+// 1.5
+// Fix warmup.
+// New bgm "Come On" which is played in map "Tunnel" in S4. (song name is "Zet" in DJMAX)
+// New bgm "Access" which is played in map "Neoniac" in S4.
+// New bgm "Grave Consequence" which is played in map "Colosseum" in S4.
+// New bgm "Syriana" which is played in map "Side 3" in S4.
+// New bgm "StarFish" which is played in map "Warp Ship" in S4.
+// New bgm "NB Power" which is played in map "Circle" in S4.
+//
 // To do
 // Add Mysql stats
 //
@@ -181,6 +190,11 @@ int DropBallParticleRef = INVALID_ENT_REFERENCE;
 bool RoundEnd;
 bool Switch;
 
+bool g_spawned_t = false;
+bool g_spawned_ct = false;
+
+bool bWarmUp;
+
 Handle hResetBallTimer = INVALID_HANDLE;
 
 Handle hBGMTimer[MAXPLAYERS + 1] = {INVALID_HANDLE, ...};
@@ -278,7 +292,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "1.4",
+	version = "1.5",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -286,7 +300,7 @@ public Plugin myinfo =
 public void OnPluginStart() 
 {
 	RegAdminCmd("sm_resetball", Command_ResetBall, ADMFLAG_GENERIC, "Reset Ball");
-	//RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
+	RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
 	
 	RegConsoleCmd("sm_guns", Command_Weapon, "Weapon Menu");
 	
@@ -306,10 +320,11 @@ public void OnPluginStart()
 	HookEvent("item_pickup", Event_ItemPickUp);
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("cs_win_panel_match", Event_WinPanelMatch);
-	//HookEvent("player_disconnect", Event_PlayerDisconnect);
-	//HookEvent("round_freeze_end", Event_RoundFreezeEnd);
 	HookEvent("player_team", Event_PlayerTeam, EventHookMode_Pre);
 	HookEvent("announce_phase_end", Event_HalfTime);
+	
+	//https://github.com/mukunda-/rxg-plugins/blob/fc533fcc9aeab3715b89d1a5c99905deb9a17865/gamefixes/restart_fix.sp
+	HookEvent("cs_match_end_restart", Event_MatchRestart, EventHookMode_PostNoCopy);
 	
 	AddNormalSoundHook(Event_SoundPlayed);
 	
@@ -384,6 +399,8 @@ public void Restart_Handler(Handle convar, const char[] oldValue, const char[] n
 		score_ct2 = 0;
 		Switch = false;
 		Touchdowner = 0;
+		g_spawned_t = false;
+		g_spawned_ct = false;
     }
 }
 
@@ -465,14 +482,10 @@ public void OnMapStart()
 		AcceptEntityInput(iEnt,"kill"); //Destroy the entity
 	}
 	
-	ServerCommand("mp_ignore_round_win_conditions 1");
+	ServerCommand("mp_ignore_round_win_conditions 0");
 	
-	// Remove freezetime
+	// Remove freezetime, S4 doesn't have freeze time
 	ServerCommand("mp_freezetime 0");
-	
-	// Plugin will not working if we don't have this
-	ServerCommand("mp_do_warmup_period 1");
-	ServerCommand("mp_do_warmuptime 1");
 	
 	// Remove shit
 	ServerCommand("mp_weapons_allow_map_placed 0");
@@ -487,9 +500,6 @@ public void OnMapStart()
 	
 	// Bot is not allowed in this gamemode, because they don't know how to play
 	ServerCommand("bot_quota 0");
-	
-	// Spec enemy is not allowed?
-	// ServerCommand("mp_forcecamera 1");
 	
 	// We slay loser on round end, so we have to disable this. DO NOT CHANGE THIS
 	ServerCommand("mp_autokick 0");
@@ -629,6 +639,12 @@ public void OnMapStart()
 	AddFileToDownloadsTable("sound/touchdown/bgm/Move_Your_Spirit.mp3");
 	AddFileToDownloadsTable("sound/touchdown/bgm/Fuzzy_Control.mp3");
 	AddFileToDownloadsTable("sound/touchdown/bgm/Seize.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Syriana.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Access.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Grave_Consequence.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Come_On.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Starfish.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/NB_Power.mp3");
 	
 	// Precache Model
 	PrecacheModel(BallModelPath, true);
@@ -730,12 +746,15 @@ public void OnMapStart()
 	FakePrecacheSound("*/touchdown/bgm/Move_Your_Spirit.mp3");
 	FakePrecacheSound("*/touchdown/bgm/Fuzzy_Control.mp3");
 	FakePrecacheSound("*/touchdown/bgm/Seize.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Syriana.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Access.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Grave_Consequence.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Come_On.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Starfish.mp3");
+	FakePrecacheSound("*/touchdown/bgm/NB_Power.mp3");
 	
 	// Ball
 	FakePrecacheSound("*/touchdown/pokeball_bounce.mp3");
-	
-	// Sometimes flag & ball not spawn, need to restart game
-	ServerCommand("mp_restartgame 10");
 	
 	score_t = 0;
 	score_ct = 0;
@@ -807,6 +826,17 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 		CreateTimer(0.1, FreezeClient, client);
 		EmitSoundToClient(client, "*/touchdown/player_respawn.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 	}
+	
+	// https://github.com/mukunda-/rxg-plugins/blob/fc533fcc9aeab3715b89d1a5c99905deb9a17865/gamefixes/restart_fix.sp
+	if(GetClientTeam(client) == TR)
+		g_spawned_t = true;
+	
+	if(GetClientTeam(client) == CT) 
+		g_spawned_ct = true;
+	
+	// both team have players
+	if(g_spawned_t && g_spawned_ct) 
+		ServerCommand("mp_ignore_round_win_conditions 1");
 }
 
 // Weapons
@@ -1150,7 +1180,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	{
 		AcceptEntityInput(iEnt, "kill");
 	}
-
+	
 	// Create ball model
 	SpawnBall();
 	SpawnGoal();
@@ -1209,7 +1239,7 @@ public Action PlayBGMTimer(Handle tmr, any client)
 		{
 			StopBGM(i);
 			
-			switch(GetRandomInt(1, 8))
+			switch(GetRandomInt(1, 14))
 			{
 				// Chain Reaction
 				case 1:
@@ -1257,6 +1287,42 @@ public Action PlayBGMTimer(Handle tmr, any client)
 				case 8:
 				{
 					BGM = 8;
+				}
+				
+				// Syriana
+				case 9:
+				{
+					BGM = 9;
+				}
+				
+				// Access
+				case 10:
+				{
+					BGM = 10;
+				}
+				
+				// Grave_Consequence
+				case 11:
+				{
+					BGM = 11;
+				}
+				
+				// Come On
+				case 12:
+				{
+					BGM = 12;
+				}
+				
+				// Starfish
+				case 13:
+				{
+					BGM = 13;
+				}
+				
+				// NB Power
+				case 14:
+				{
+					BGM = 14;
 				}
 			}
 			
@@ -1335,6 +1401,48 @@ public Action BGMTimer(Handle tmr, any client)
 			EmitSoundToClient(client, "*/touchdown/bgm/Seize.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(122.0, BGMTimer, client);
 		}
+		
+		if(BGM == 9)	
+		{
+			CPrintToChat(client, "%T", "BGM 9", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Syriana.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(92.0, BGMTimer, client);
+		}
+		
+		if(BGM == 10)	
+		{
+			CPrintToChat(client, "%T", "BGM 10", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Access.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(145.0, BGMTimer, client);
+		}
+		
+		if(BGM == 11)	
+		{
+			CPrintToChat(client, "%T", "BGM 11", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Grave_Consequence.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(99.0, BGMTimer, client);
+		}
+		
+		if(BGM == 12)	
+		{
+			CPrintToChat(client, "%T", "BGM 12", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Come_On.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(180.0, BGMTimer, client);
+		}
+		
+		if(BGM == 13)	
+		{
+			CPrintToChat(client, "%T", "BGM 13", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Starfish.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(135.0, BGMTimer, client);
+		}
+		
+		if(BGM == 14)	
+		{
+			CPrintToChat(client, "%T", "BGM 14", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/NB_Power.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(125.0, BGMTimer, client);
+		}
 	}
 }
 
@@ -1378,6 +1486,36 @@ void StopBGM(int client)
 	if(BGM == 8)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Seize.mp3");	
+	}
+	
+	if(BGM == 9)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Syriana.mp3");	
+	}
+	
+	if(BGM == 10)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Access.mp3");	
+	}
+	
+	if(BGM == 11)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Grave_Consequence.mp3");	
+	}
+	
+	if(BGM == 12)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Come_On.mp3");	
+	}
+	
+	if(BGM == 13)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Starfish.mp3");	
+	}
+	
+	if(BGM == 14)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/NB_Power.mp3");	
 	}
 }
 
@@ -1670,8 +1808,8 @@ public Action NextRoundCountdown(Handle tmr)
 {
 	--Nextroundtime;
     
-    // We don't need this in Half time
-	if (Switch)
+    // We don't need this in Half time and warmup
+	if (Switch || bWarmUp)
 	{
 		KillTimer(hNextRoundCountdown);
 		hNextRoundCountdown = INVALID_HANDLE;
@@ -1909,6 +2047,13 @@ public void OnStartTouch(int ent, int client)
 	{
 		if(GetClientTeam(client) == SPEC)
 			return;
+		
+		// You can't pick up the ball in warmup
+		if(bWarmUp)
+		{
+			CPrintToChat(client, "%T", "No pick up warmup", client)
+			return;
+		}
 		
 		// Client get the ball
 		if(BallHolder == 0 && IsPlayerAlive(client) && IsValidEntity(client))
@@ -2628,6 +2773,11 @@ void RoundEnd_OnRoundStart()
 public void OnGameFrame()
 {
 	RoundEnd_OnGameFrame();
+	
+	if(GameRules_GetProp("m_bWarmupPeriod") == 1)
+		bWarmUp = true;
+
+	else bWarmUp = false;
 }
 
 void RoundEnd_OnGameFrame()
@@ -2696,10 +2846,11 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 		}
 	}
 	
-	// Round Draw
-	// play timeover sound
 	char sMessage[256] = "";
 	GetEventString(event, "message",sMessage, sizeof(sMessage));
+	
+	// Round Draw
+	// play timeover sound
 	if(StrEqual(sMessage,"#SFUI_Notice_Round_Draw", false))
 	{
 		for (i = 1; i <= MaxClients; i++)
@@ -2732,6 +2883,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				{
 					SetClientOverlay(i, "touchdown/touchdown_green");
 					
+					// TR lead 1 point
 					if(score_t - score_ct == 1)
 					{
 						switch(GetRandomInt(1,2))
@@ -3122,7 +3274,6 @@ void ResetBall()
 	
 	Call_StartForward(OnBallReset);
 	Call_Finish();
-
 		
 	// Reset Ball Holder
 	BallHolder = 0;
@@ -3201,18 +3352,29 @@ public Action Command_Weapon(int client,int args)
 	return Plugin_Handled;
 }
 
-/*
+
 public Action Command_Test(int client,int args)
 {
-	
+	if(g_spawned_t)
+	{
+		PrintToChat(client, "spawned_t");
+		PrintToServer("spawned_t");
+	}
+		
+	if(g_spawned_ct)
+	{
+		PrintToChat(client, "spawned_ct");
+		PrintToServer("spawned_ct");
+	}
 }
-*/
+
 
 // Match End
 public Action Event_WinPanelMatch(Handle event, const char[] name, bool dontBroadcast)
 {
 	CreateTimer(7.0, MatchEndSound);
 	ResetTimer();
+	ServerCommand("mp_ignore_round_win_conditions 0");
 }
 
 public Action MatchEndSound(Handle tmr)
@@ -3351,6 +3513,8 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 		BallDroperTeam = 0;
 		Touchdowner = 0;
 	}
+	
+	// PrintToChatAll("Round Terminated Reason: %d", reason);
 }  
 
 public void OnClientDisconnect(int client)
@@ -3395,6 +3559,17 @@ public void OnClientDisconnect(int client)
 		KillTimer(hRDropBallText[client]);
 	}
 	hRDropBallText[client] = INVALID_HANDLE;
+	
+	// Client disconnect and the team has no player
+	if(GetTeamClientCount(CT) == 0)
+		g_spawned_ct = false;
+		
+	if(GetTeamClientCount(TR) == 0)
+		g_spawned_ct = false;
+	
+	// Both team no player
+	if(GetTeamClientCount(CT) == 0 && GetTeamClientCount(TR) == 0)
+		ServerCommand("mp_ignore_round_win_conditions 0");
 }
 
 public Action Command_Vol(int client,int args)
@@ -3485,8 +3660,22 @@ public Action Command_Join(int client, const char[] command, int argc)
 		SetEntProp(client, Prop_Send, "m_iTeamNum", iJoining);
 		ForcePlayerSuicide(client);
 		
+		// Restartgame when someone play alone and new player join
+		if(GetTeamClientCount(TR) == 0)
+		
+		// only 1 player and he join different team
+		// joined CT, and TR = 0
+		if(iJoining == CT && GetTeamClientCount(TR) == 0)
+			g_spawned_t = false;
+		
+		// joined CT, and TR = 0
+		if(iJoining == TR && GetTeamClientCount(CT) == 0)
+			g_spawned_ct = false;
+		
+		// Respawn
 		CS_RespawnPlayer(client);
 		
+		// Freeze if roundend
 		CreateTimer(0.1, FreezeClient, client);
 		
 		// Someone is holding the ball
@@ -3740,26 +3929,37 @@ public Action OnWeaponDrop(int client, int weapon)
     return Plugin_Continue; 
 }  
 
-// https://forums.alliedmods.net/showpost.php?p=2514392&postcount=2
+
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
 {
-    if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK)
-    {
+	if (!IsValidClient(client) || IsFakeClient(client))
+		return Plugin_Continue;
+
+	// https://forums.alliedmods.net/showpost.php?p=2514392&postcount=2
+	if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK)
+	{
 		buttons &= ~IN_ATTACK;
 		return Plugin_Changed;
-    }
+	}
     
-    if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK2)
-    {
+	if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK2)
+	{
 		buttons &= ~IN_ATTACK2;
 		return Plugin_Changed;
-    }
-    
-	else return Plugin_Continue;
+	}
+
+	return Plugin_Continue;
 }
 
 public Action FreezeClient(Handle tmr, any client)
 {
 	if (IsValidClient(client) && !IsFakeClient(client) && RoundEnd)
 		SetEntityMoveType(client, MOVETYPE_NONE);
+}
+
+public void Event_MatchRestart(Handle event, const char[] name, bool dontBroadcast) 
+{
+	// reset flags which event will use
+	g_spawned_t = false;
+	g_spawned_ct = false;
 }

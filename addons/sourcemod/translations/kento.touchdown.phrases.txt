@@ -77,6 +77,48 @@
 		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}S4 League - Seize"
 	}
 	
+	"BGM 9"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Bexter - Syriana"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Bexter - Syriana"
+	}
+	
+	"BGM 10"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Sphazer - Access"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Sphazer - Access"
+	}
+	
+	"BGM 11"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Tsukasa - Grave Consequence"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Tsukasa - Grave Consequence"
+	}
+	
+	"BGM 12"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Bexter - Come On"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}Bexter - Come On"
+	}
+	
+	"BGM 13"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - StarFish"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}PlanetBoom - StarFish"
+	}
+	
+	"BGM 14"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}NieN - NB Power"
+		"zho"			"{GREEN}[Touch Down] {NORMAL}BGM: {PINK}NieN - NB Power"
+	}
+	
 	"Volume 1"
 	{
 		"#format"		""
@@ -264,6 +306,13 @@
 		"#format"		"{1:s},{2:s}"
 		"en"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}Kill The Ball Holder {ORANGE}{2}!"
 		"zho"			"{GREEN}[Touch Down] {BLUE}{1} {LIGHTGREEN}擊殺了拿著球的 {ORANGE}{2}!"
+	}
+	
+	"No pick up warmup"
+	{
+		"#format"		""
+		"en"			"{GREEN}[Touch Down] {RED}You can not pick up the ball in warmup."
+		"zho"			"{GREEN}[Touch Down] {RED}你無法在暖場撿球."
 	}
 	
 //**********************************************************************************************************************
