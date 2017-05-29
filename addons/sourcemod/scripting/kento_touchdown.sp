@@ -300,7 +300,7 @@ public Plugin myinfo =
 public void OnPluginStart() 
 {
 	RegAdminCmd("sm_resetball", Command_ResetBall, ADMFLAG_GENERIC, "Reset Ball");
-	RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
+	//RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
 	
 	RegConsoleCmd("sm_guns", Command_Weapon, "Weapon Menu");
 	
@@ -3352,22 +3352,12 @@ public Action Command_Weapon(int client,int args)
 	return Plugin_Handled;
 }
 
-
+/*
 public Action Command_Test(int client,int args)
 {
-	if(g_spawned_t)
-	{
-		PrintToChat(client, "spawned_t");
-		PrintToServer("spawned_t");
-	}
-		
-	if(g_spawned_ct)
-	{
-		PrintToChat(client, "spawned_ct");
-		PrintToServer("spawned_ct");
-	}
+	
 }
-
+*/
 
 // Match End
 public Action Event_WinPanelMatch(Handle event, const char[] name, bool dontBroadcast)
