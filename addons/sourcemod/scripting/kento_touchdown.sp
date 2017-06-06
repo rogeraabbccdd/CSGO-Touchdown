@@ -361,7 +361,6 @@ public Plugin myinfo =
 public void OnPluginStart() 
 {
 	RegAdminCmd("sm_resetball", Command_ResetBall, ADMFLAG_GENERIC, "Reset Ball");
-	RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
 	
 	// Weapon
 	RegConsoleCmd("sm_guns", Command_Weapon, "Weapon Menu");
@@ -3887,11 +3886,6 @@ public Action Command_Weapon(int client,int args)
 	b_SelectedWeapon[client] = false;
 	ShowMainMenu(client);
 	return Plugin_Handled;
-}
-
-public Action Command_Test(int client,int args)
-{
-	
 }
 
 // Match End
