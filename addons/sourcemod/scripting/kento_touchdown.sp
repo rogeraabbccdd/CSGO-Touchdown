@@ -24,8 +24,10 @@
 // New bgm "StarFish" which is played in map "Warp Ship" in S4.
 // New bgm "NB Power" which is played in map "Circle" in S4.
 //
-// To do
-// Add Mysql stats
+// 2.0
+// Add Mysql stats and rank
+// Some changes (Remove respawn timer in warmup, add healthshot and taser)
+// Lots of New cvars
 //
 // Maybe we can add
 // Jump Sound? jump_up.mp3
@@ -244,9 +246,49 @@ float g_fvol[MAXPLAYERS+1];
 ConVar td_respawn;
 ConVar td_reset;
 ConVar td_ballposition;
+ConVar td_taser;
+ConVar td_healthshot;
+
+ConVar td_stats_enabled;
+ConVar td_stats_min;
+ConVar td_stats_table_name;
+ConVar td_points_enabled;
+
 float ftd_respawn;
 float ftd_reset;
 int itd_ballposition;
+bool btd_taser;
+bool btd_healthshot;
+
+bool btd_stats_enabled;
+int itd_stats_min;
+bool btd_points_enabled;
+
+char std_stats_table_name[200];
+
+ConVar td_points_td;
+ConVar td_points_kill;
+ConVar td_points_assist;
+ConVar td_points_bonus;
+ConVar td_points_death;
+ConVar td_points_dropball;
+ConVar td_points_killball;
+ConVar td_points_pickball;
+ConVar td_points_start;
+ConVar td_points_min;
+ConVar td_points_min_enabled;
+
+int itd_points_td;
+int itd_points_kill;
+int itd_points_assist;
+float ftd_points_bonus;
+int itd_points_death;
+int itd_points_dropball;
+int itd_points_killball;
+int itd_points_pickball;
+int itd_points_start;
+int itd_points_min;
+bool btd_points_min_enabled;
 
 // Timer
 Handle hDropBallText[MAXPLAYERS + 1] = INVALID_HANDLE;
@@ -288,11 +330,30 @@ Handle OnPlayerGetBall;
 Handle OnPlayerTouchDown;
 Handle OnPlayerKillBall;
 	
+// Stats
+enum STATS
+{
+	POINTS,
+	KILLS,
+	DEATHS,
+	ASSISTS,
+	TOUCHDOWN,
+	GETBALL,
+	DROPBALL,
+	KILLBALL,
+}
+
+int Stats[MAXPLAYERS + 1][STATS];
+
+// query
+Database ddb = null;
+int iTotalPlayers;
+
 public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "1.5",
+	version = "2.0",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -300,9 +361,15 @@ public Plugin myinfo =
 public void OnPluginStart() 
 {
 	RegAdminCmd("sm_resetball", Command_ResetBall, ADMFLAG_GENERIC, "Reset Ball");
-	//RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
+	RegAdminCmd("sm_test", Command_Test, ADMFLAG_ROOT, "Test Touchdown");
 	
+	// Weapon
 	RegConsoleCmd("sm_guns", Command_Weapon, "Weapon Menu");
+	
+	// Stats and rank
+	RegConsoleCmd("sm_rank", Command_Rank, "Show your touchdown rank");
+	RegConsoleCmd("sm_stats", Command_Stats, "Show your touchdown stats");
+	RegConsoleCmd("sm_top", Command_Top, "Show top players");
 	
 	// volume
 	RegConsoleCmd("sm_vol", Command_Vol, "Volume");
@@ -320,7 +387,6 @@ public void OnPluginStart()
 	HookEvent("item_pickup", Event_ItemPickUp);
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("cs_win_panel_match", Event_WinPanelMatch);
-	HookEvent("player_team", Event_PlayerTeam, EventHookMode_Pre);
 	HookEvent("announce_phase_end", Event_HalfTime);
 	
 	//https://github.com/mukunda-/rxg-plugins/blob/fc533fcc9aeab3715b89d1a5c99905deb9a17865/gamefixes/restart_fix.sp
@@ -341,15 +407,75 @@ public void OnPluginStart()
 	td_reset = CreateConVar("sm_touchdown_reset",  "15.0", "How long to reset the ball if nobody takes the ball after ball drop.", FCVAR_NOTIFY, true, 0.0);
 	td_ballposition = CreateConVar("sm_touchdown_ball_position",  "1", "Where to attach the ball when player get the ball? 0 = front, 1 = head", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	
+	td_taser = CreateConVar("sm_touchdown_taser",  "1", "Give player taser?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	td_healthshot = CreateConVar("sm_touchdown_healthshot",  "1", "Give player healthshot?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	
+	td_stats_enabled = CreateConVar("sm_touchdown_stats_enabled",  "1", "Enable stats or not? (MYSQL only!)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	td_stats_min = CreateConVar("sm_touchdown_stats_min",  "4", "Min player to count stats.", FCVAR_NOTIFY, true, 0.0);
+	td_stats_table_name = CreateConVar("sm_touchdown_stats_table",  "touchdown", "MySQL table name for touchdown.");
+	td_points_enabled = CreateConVar("sm_touchdown_points_enabled",  "1", "Enable points or not?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	
+	// Points cvar
+	// http://s4league.wikia.com/wiki/Touchdown#Scoring
+	td_points_td = CreateConVar("sm_touchdown_points_td",  "10", "How many points player can get when he touchdown?", FCVAR_NOTIFY, true, 0.0);
+	td_points_kill = CreateConVar("sm_touchdown_points_kill",  "2", "How many points player will get when he kill?", FCVAR_NOTIFY, true, 0.0);
+	td_points_assist = CreateConVar("sm_touchdown_points_assist",  "1", "How many points player can get when he assist kill?", FCVAR_NOTIFY, true, 0.0);
+	td_points_bonus = CreateConVar("sm_touchdown_points_bonus",  "2.0", "Offense / Defence bonus multiplier", FCVAR_NOTIFY, true, 0.0);
+	td_points_death = CreateConVar("sm_touchdown_points_death",  "0", "How many points player will lose when he killed?", FCVAR_NOTIFY, true, 0.0);
+	td_points_dropball = CreateConVar("sm_touchdown_points_dropball",  "0", "How many points player will lose when he drop ball?", FCVAR_NOTIFY, true, 0.0);
+	td_points_killball = CreateConVar("sm_touchdown_points_killball",  "0", "How many points player will get when he kill ball holder?", FCVAR_NOTIFY, true, 0.0);
+	td_points_pickball = CreateConVar("sm_touchdown_points_pickball",  "2", "How many points player will get when he pick up the ball?", FCVAR_NOTIFY, true, 0.0);
+	td_points_start = CreateConVar("sm_touchdown_points_start",  "0", "Starting points", FCVAR_NOTIFY, true, 0.0);
+	td_points_min_enabled = CreateConVar("sm_touchdown_points_min_enabled",  "1", "Enable minimum points?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	td_points_min = CreateConVar("sm_touchdown_points_min",  "0", "Minimum points", FCVAR_NOTIFY, true, 0.0);
+	
 	HookConVarChange(td_respawn, OnConVarChanged);
 	HookConVarChange(td_reset, OnConVarChanged);
 	HookConVarChange(td_ballposition, OnConVarChanged);
+	HookConVarChange(td_taser, OnConVarChanged);
+	HookConVarChange(td_healthshot, OnConVarChanged);
+	
+	HookConVarChange(td_stats_enabled, OnConVarChanged);
+	HookConVarChange(td_stats_min, OnConVarChanged);
+	HookConVarChange(td_points_enabled, OnConVarChanged);
+	
+	HookConVarChange(td_points_td, OnConVarChanged);
+	HookConVarChange(td_points_kill, OnConVarChanged);
+	HookConVarChange(td_points_assist, OnConVarChanged);
+	HookConVarChange(td_points_bonus, OnConVarChanged);
+	HookConVarChange(td_points_death, OnConVarChanged);
+	HookConVarChange(td_points_dropball, OnConVarChanged);
+	HookConVarChange(td_points_killball, OnConVarChanged);
+	HookConVarChange(td_points_pickball, OnConVarChanged);
+	HookConVarChange(td_points_start, OnConVarChanged);
+	HookConVarChange(td_points_min, OnConVarChanged);
+	HookConVarChange(td_points_min_enabled, OnConVarChanged);
+	
+	GetConVarString(td_stats_table_name, std_stats_table_name, sizeof(std_stats_table_name));
+	
+	AutoExecConfig(true, "kento_touchdown");
 	
 	ftd_respawn = GetConVarFloat(td_respawn);
 	ftd_reset = GetConVarFloat(td_reset);
 	itd_ballposition = GetConVarInt(td_ballposition);
+	btd_taser = GetConVarBool(td_taser);
+	btd_healthshot = GetConVarBool(td_healthshot);
 	
-	AutoExecConfig(true, "kento_touchdown");	
+	btd_stats_enabled = GetConVarBool(td_stats_enabled);
+	itd_stats_min = GetConVarInt(td_stats_min);
+	btd_points_enabled = GetConVarBool(td_stats_enabled);
+	
+	itd_points_td = GetConVarInt(td_points_td);
+	itd_points_kill = GetConVarInt(td_points_kill);
+	itd_points_assist = GetConVarInt(td_points_assist);
+	ftd_points_bonus = GetConVarFloat(td_points_bonus);
+	itd_points_death = GetConVarInt(td_points_death);
+	itd_points_dropball = GetConVarInt(td_points_dropball);
+	itd_points_killball = GetConVarInt(td_points_killball);
+	itd_points_pickball = GetConVarInt(td_points_pickball);
+	itd_points_start = GetConVarInt(td_points_start);
+	itd_points_min = GetConVarInt(td_points_min);
+	btd_points_min_enabled = GetConVarBool(td_points_min_enabled);
 }
 
 // Create natives and forwards
@@ -358,6 +484,15 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	CreateNative("Touchdown_GetBallHolder", Native_GetBallHolder);
 	CreateNative("Touchdown_GetBallDropTeam", Native_GetBallDropTeam);
 	CreateNative("Touchdown_IsClientBallHolder", Native_IsClientBallHolder);
+	
+	CreateNative("Touchdown_GetClientPoints", Native_GetClientPoints);
+	CreateNative("Touchdown_GetClientKills", Native_GetClientKills);
+	CreateNative("Touchdown_GetClientDeaths", Native_GetClientDeaths);
+	CreateNative("Touchdown_GetClientAssists", Native_GetClientAssists);
+	CreateNative("Touchdown_GetClientTouchdown", Native_GetClientTouchdown);
+	CreateNative("Touchdown_GetClientKillball", Native_GetClientKillball);
+	CreateNative("Touchdown_GetClientDropball", Native_GetClientDropball);
+	CreateNative("Touchdown_GetClientGetball", Native_GetClientGetball);
 	
 	OnPlayerDropBall = CreateGlobalForward("Touchdown_OnPlayerDropBall", ET_Ignore, Param_Cell);
 	OnBallReset = CreateGlobalForward("Touchdown_OnBallReset", ET_Ignore);
@@ -385,6 +520,54 @@ public int Native_IsClientBallHolder(Handle plugin, int numParams)
 	else return false;
 }
 
+public int Native_GetClientPoints(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][POINTS];
+}
+
+public int Native_GetClientKills(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][KILLS];
+}
+
+public int Native_GetClientDeaths(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][DEATHS];
+}
+
+public int Native_GetClientAssists(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][ASSISTS];
+}
+
+public int Native_GetClientTouchdown(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][TOUCHDOWN];
+}
+
+public int Native_GetClientKillball(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][KILLBALL];
+}
+
+public int Native_GetClientGetball(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][GETBALL];
+}
+
+public int Native_GetClientDropball(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1)
+	return Stats[client][DROPBALL];
+}
+
 public void Restart_Handler(Handle convar, const char[] oldValue, const char[] newValue)
 {
     if ((convar == mp_restartgame))
@@ -407,6 +590,17 @@ public void Restart_Handler(Handle convar, const char[] oldValue, const char[] n
 public void OnConfigsExecuted()
 {
 	LoadMapConfig(); 
+	
+	// Mysql
+	if (SQL_CheckConfig("touchdown"))
+	{
+		SQL_TConnect(OnSQLConnect, "touchdown");
+	}
+	else if (!SQL_CheckConfig("touchdown"))
+	{
+		SetFailState("Can't find an entry in your databases.cfg with the name \"touchdown\".");
+		return;
+	}
 }
 
 void LoadMapConfig()
@@ -416,7 +610,7 @@ void LoadMapConfig()
 	
 	if (!FileExists(Configfile))
 	{
-		SetFailState("Fatal error: Unable to open generic configuration file \"%s\"!", Configfile);
+		SetFailState("Fatal error: Unable to open configuration file \"%s\"!", Configfile);
 	}
 	
 	Handle kv;
@@ -756,6 +950,7 @@ public void OnMapStart()
 	// Ball
 	FakePrecacheSound("*/touchdown/pokeball_bounce.mp3");
 	
+	// Score
 	score_t = 0;
 	score_ct = 0;
 }
@@ -853,6 +1048,12 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 	{
 		RemoveAllWeapons(client, false);
 		
+		if(btd_taser)
+			GivePlayerItem(client, "weapon_taser");
+		
+		if(btd_healthshot)
+			GivePlayerItem(client, "weapon_healthshot");
+			
 		GivePlayerItem(client, g_LastPrimaryWeapon[client]);
 		GivePlayerItem(client, g_LastSecondaryWeapon[client]);
 		b_SelectedWeapon[client] = false;
@@ -861,6 +1062,12 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 	else if(b_AutoGiveWeapons[client] && !b_SelectedWeapon[client])
 	{
 		RemoveAllWeapons(client, false);
+		
+		if(btd_taser)
+			GivePlayerItem(client, "weapon_taser");
+		
+		if(btd_healthshot)
+			GivePlayerItem(client, "weapon_healthshot");
 		
 		// Always random
 		if(i_RandomWeapons[client] == 2)
@@ -889,6 +1096,13 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 	else if(!b_AutoGiveWeapons[client] && !b_SelectedWeapon[client])
 	{
 		RemoveAllWeapons(client, false);
+		
+		if(btd_taser)
+			GivePlayerItem(client, "weapon_taser");
+		
+		if(btd_healthshot)
+			GivePlayerItem(client, "weapon_healthshot");
+			
 		ShowMainMenu(client);
 	}
 }
@@ -1049,7 +1263,6 @@ public int MenuHandlers_PrimaryWeapon(Menu menu, MenuAction action, int client, 
 			menu2.AddItem("weapon_tec9", 		"TEC-9");
 			SetMenuExitButton(menu2, false);
 			menu2.Display(client, 0);
-			
 		}
 	}
 }
@@ -1540,6 +1753,8 @@ public void OnClientPutInServer(int client)
 		g_fvol[client] = 0.8;
 	}
 	
+	LoadClientStats(client);
+	
 	SDKHook(client, SDKHook_WeaponCanUse, OnWeaponCanUse);
 	SDKHook(client, SDKHook_WeaponDrop, OnWeaponDrop);
 }
@@ -1765,6 +1980,12 @@ void ResetTimer()
 		KillTimer(hRoundCountdown);
 	}
 	hRoundCountdown = INVALID_HANDLE;
+	
+	if(hResetBallTimer != INVALID_HANDLE)
+	{
+		KillTimer(hResetBallTimer);
+		hResetBallTimer = INVALID_HANDLE;
+	}
 	
 	int i;
 	for (i = 1; i <= MaxClients; i++)
@@ -2238,14 +2459,11 @@ public void OnStartTouch(int ent, int client)
 			if(RoundEnd)
 				return;
 			
-			// T Win
-			OnTeamWin(CS_TEAM_T);
-			
-			// Give player 1 MVP star
-			CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
-			
 			// Remove ball
 			GoalBall(client);	
+			
+			// T Win
+			OnTeamWin(CS_TEAM_T);
 			
 			// Create CT Goal Particle
 			CreateCTGoalParticle();
@@ -2271,14 +2489,11 @@ public void OnStartTouch(int ent, int client)
 			if(RoundEnd)
 				return;
 			
+			// Remove ball
+			GoalBall(client);
+			
 			// CT Win
 			OnTeamWin(CS_TEAM_CT);
-
-			// Give player 1 MVP star
-			CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
-			
-			// Remove ball
-			GoalBall(client);	
 			
 			// Creat T Goal Particle
 			CreateTGoalParticle();
@@ -2388,6 +2603,23 @@ void GetBall(int client)
 	
 	// Remove map model
 	RemoveBall();
+		
+	// Stats
+	if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+	{
+		Stats[client][GETBALL]++;
+		
+		if(btd_points_enabled)
+		{
+			Stats[client][POINTS] += itd_points_pickball;
+		
+			char clientname [PLATFORM_MAX_PATH];
+			GetClientName(client, clientname, sizeof(clientname));
+		
+			if(itd_points_pickball != 0)
+				CPrintToChat(client, "%T", "Point Get Ball", client, Stats[client][POINTS], itd_points_pickball);
+		}
+	}
 	
 	// Create ball model and attach it on player
 	float m_fHatOrigin[3], m_fHatAngles[3], m_fForward[3], m_fRight[3], m_fUp[3], m_fOffset[3];
@@ -2404,7 +2636,7 @@ void GetBall(int client)
 	}
 	
 	// Head
-	else if(itd_ballposition == 1)
+	if(itd_ballposition == 1)
 	{
 		m_fOffset[0] = 0.0;
 		m_fOffset[1] = 0.0;
@@ -2590,6 +2822,23 @@ void DropBall(int client)
 
 	// Remove player ball model
 	RemoveBall();
+
+	// Stats
+	if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+	{
+		Stats[client][DROPBALL]++;		
+		
+		if(btd_points_enabled)
+		{
+			Stats[client][POINTS] -= itd_points_dropball;
+			
+			if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
+				Stats[client][POINTS] = itd_points_min;
+				
+			if(itd_points_dropball != 0)
+				CPrintToChat(client, "%T", "Point Drop Ball", client, Stats[client][POINTS], itd_points_dropball);
+		}
+	}
 	
 	// Spawn a ball model
 	// From simple ball plugin
@@ -2734,6 +2983,26 @@ void GoalBall(int client)
 	
 	else if(GetClientTeam(client) == CT)
 		AcceptEntityInput(CTParticle, "Kill");
+		
+	// Give player 1 MVP star
+	CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
+	
+	// Stats
+	if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+	{
+		Stats[client][TOUCHDOWN]++;	
+		
+		if(btd_points_enabled)
+		{
+			Stats[client][POINTS] += itd_points_td;
+		
+			char clientname [PLATFORM_MAX_PATH];
+			GetClientName(client, clientname, sizeof(clientname));
+		
+			if(itd_points_td != 0)
+				CPrintToChat(client, "%T", "Point Touchdown", client, Stats[client][POINTS], itd_points_td);
+		}
+	}
 	
 	BallHolder = 0;
 	BallDroperTeam = 0;
@@ -2843,6 +3112,8 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				KillTimer(hRDropBallText[i]);
 			}
 			hRDropBallText[i] = INVALID_HANDLE;
+			
+			SaveClientStats(i);
 		}
 	}
 	
@@ -3106,20 +3377,32 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 {
 	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int assister = GetClientOfUserId(GetEventInt(event, "assister"));
 	
-	// slay player to at round end so we don't need to play kill sound & respawn
-	if(RoundEnd)
-		return;
+	char attackername [PLATFORM_MAX_PATH];
+	GetClientName(attacker, attackername, sizeof(attackername));
 		
-	// PrintText
-	PrintHintText(client, "%T", "Respawn", client, ftd_respawn);
-	CPrintToChat(client, "%T", "Respawn 2", client, ftd_respawn);
+	char clientname [PLATFORM_MAX_PATH];
+	GetClientName(client, clientname, sizeof(clientname));
 	
-	// Respawn Victim
-	CreateTimer(ftd_respawn, Respawn_Player, client);
+	char assistername [PLATFORM_MAX_PATH];
+	GetClientName(assister, assistername, sizeof(assistername));
 	
+	// We don't need to respawn player in warmup.
+	if(!bWarmUp)
+	{
+		// PrintText
+		PrintHintText(client, "%T", "Respawn", client, ftd_respawn);
+		CPrintToChat(client, "%T", "Respawn 2", client, ftd_respawn);
+	
+		// Respawn Victim
+		CreateTimer(ftd_respawn, Respawn_Player, client);
+	}
+	
+	// Not suicide and not kill ball holder
 	if(IsValidClient(attacker) && client != BallHolder && client != attacker && IsValidClient(client))
 	{
+		// Play sound
 		switch(GetRandomInt(1,8))
 		{
 			case 1:
@@ -3158,9 +3441,270 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		}
 	}
 	
-	// Force thirdperson to prevent sound vol low? (sound from player is fucking stupid)
-	// SetEntPropEnt(client, Prop_Send, "m_iObserverMode", 5);
-            
+	// someone have the ball
+	if (BallHolder != 0)
+	{
+		// player suicide
+		if(BallHolder != client && (client == attacker || !IsValidClient(attacker)))
+		{
+			// stats enable
+			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+			{
+				Stats[client][DEATHS]++;
+				
+				if(IsValidClient(assister))
+					Stats[assister][ASSISTS]++;	
+				
+				if(btd_points_enabled)
+				{
+					Stats[client][POINTS] -= itd_points_death;	
+					
+					if(IsValidClient(assister))
+						Stats[assister][POINTS] += itd_points_assist;
+					
+					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
+						Stats[client][POINTS] = itd_points_min;
+					
+					if(itd_points_assist != 0 && IsValidClient(assister))
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+			
+					if(itd_points_death != 0)
+						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);	
+				}						
+			}
+		}
+
+		// ball holder suicide
+		else if(BallHolder == client && (client == attacker || attacker == 0))
+		{
+			// stats enable
+			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+			{
+				Stats[client][DEATHS]++;
+				
+				if(IsValidClient(assister))
+					Stats[assister][ASSISTS]++;	
+				
+				if(btd_points_enabled)
+				{
+					Stats[client][POINTS] -= itd_points_death;	
+					
+					if(IsValidClient(assister))
+						Stats[assister][POINTS] += itd_points_assist;
+
+					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
+						Stats[client][POINTS] = itd_points_min;
+				
+					if(itd_points_assist != 0 && IsValidClient(assister))
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+			
+					if(itd_points_death != 0)
+						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);
+				}
+			}
+				
+			DropBall(client);
+		
+			Call_StartForward(OnPlayerKillBall);
+			Call_PushCell(client);
+			Call_PushCell(attacker);
+			Call_Finish();
+		
+			for (int i = 1; i <= MaxClients; i++)
+			{
+				if (IsValidClient(i) && !IsFakeClient(i)) 
+				{
+					if(hAcquiredBallText[i] != INVALID_HANDLE)
+					{
+						KillTimer(hAcquiredBallText[i]);
+					}
+					hAcquiredBallText[i] = INVALID_HANDLE;
+	
+					if(hRAcquiredBallText[i] != INVALID_HANDLE)
+					{
+						KillTimer(hRAcquiredBallText[i]);
+					}
+					hRAcquiredBallText[i] = INVALID_HANDLE;
+				}
+			}
+		}
+			
+		// kill ball holder, not ball holder suicide
+		if(BallHolder == client && client != attacker && IsValidClient(attacker))
+		{
+			// stats enable
+			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+			{
+				Stats[attacker][KILLS]++;
+				Stats[attacker][KILLBALL]++;
+				Stats[client][DEATHS]++;	
+				
+				if(IsValidClient(assister))
+					Stats[assister][ASSISTS]++;	
+					
+				if(btd_points_enabled)
+				{
+					Stats[attacker][POINTS] += itd_points_killball;
+					Stats[client][POINTS] -= itd_points_death;
+				
+					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
+						Stats[client][POINTS] = itd_points_min;
+				
+					if(IsValidClient(assister))
+						Stats[assister][POINTS] += itd_points_assist;
+				
+					if(itd_points_assist != 0 && IsValidClient(assister))
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+			
+					if(itd_points_kill != 0)
+						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], itd_points_kill, clientname);
+			
+					if(itd_points_death != 0)
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
+				}
+			}
+		
+			DropBall(client);
+		
+			Call_StartForward(OnPlayerKillBall);
+			Call_PushCell(client);
+			Call_PushCell(attacker);
+			Call_Finish();
+				
+			for (int i = 1; i <= MaxClients; i++)
+			{
+				if (IsValidClient(i) && !IsFakeClient(i)) 
+				{
+					if(hAcquiredBallText[i] != INVALID_HANDLE)
+					{
+						KillTimer(hAcquiredBallText[i]);
+					}
+					hAcquiredBallText[i] = INVALID_HANDLE;
+	
+					if(hRAcquiredBallText[i] != INVALID_HANDLE)
+					{
+						KillTimer(hRAcquiredBallText[i]);
+					}
+					hRAcquiredBallText[i] = INVALID_HANDLE;
+
+					// Not suicide
+					if(GetClientTeam(attacker) == TR)
+						CPrintToChat(i, "%T", "Kill Ball T", i, attackername, clientname);
+					
+					else if(GetClientTeam(attacker) == CT)
+						CPrintToChat(i, "%T", "Kill Ball CT", i, attackername, clientname);
+				}
+			}
+		}
+
+		// not kill ball holder and someone have the ball, so we have Attack / Defense bonus points
+		else if(BallHolder != client && client != attacker && IsValidClient(attacker))
+		{
+			// stats enable
+			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+			{
+				Stats[attacker][KILLS]++;
+				Stats[client][DEATHS]++;	
+				
+				if(IsValidClient(assister))
+					Stats[assister][ASSISTS]++;	
+					
+				if(btd_points_enabled)
+				{
+					int score_dif_attacker = RoundToCeil(itd_points_kill * ftd_points_bonus);
+					int score_dif_assister = RoundToCeil(itd_points_assist * ftd_points_bonus);
+				
+					Stats[attacker][POINTS] += score_dif_attacker;
+					Stats[client][POINTS] -= itd_points_death;
+				
+					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
+						Stats[client][POINTS] = itd_points_min;
+				
+					if(IsValidClient(assister))
+						Stats[assister][POINTS] += score_dif_assister;
+			
+					if(score_dif_assister != 0 && IsValidClient(assister))
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], score_dif_assister, attackername ,clientname);
+				
+					if(score_dif_attacker != 0)
+						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], score_dif_attacker, clientname);
+
+					if(itd_points_death != 0)
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
+				}
+			}
+		}
+	}
+	
+	// Nobody have the ball, no bonus
+	else if (BallHolder == 0)
+	{
+		if(client != attacker && IsValidClient(attacker))
+		{
+			// stats enable
+			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+			{
+				Stats[attacker][KILLS]++;
+				Stats[client][DEATHS]++;
+				
+				if(IsValidClient(assister))
+					Stats[assister][ASSISTS]++;	
+				
+				if(btd_points_enabled)
+				{
+					Stats[attacker][POINTS] += itd_points_kill;
+					Stats[client][POINTS] -= itd_points_death;
+				
+					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
+						Stats[client][POINTS] = itd_points_min;
+				
+					if(IsValidClient(assister))
+						Stats[assister][POINTS] += itd_points_assist;
+				
+					if(itd_points_assist != 0 && IsValidClient(assister))
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+				
+					if(itd_points_kill != 0)
+						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], itd_points_kill, clientname);
+				
+					if(itd_points_death != 0)
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
+				}
+			}
+		}
+		
+		// player suicide
+		if(client == attacker || attacker == 0)
+		{
+			// stats enable
+			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
+			{
+				Stats[client][DEATHS]++;	
+				
+				if(IsValidClient(assister))
+					Stats[assister][ASSISTS]++;	
+					
+				if(btd_points_enabled)
+				{
+					Stats[client][POINTS] -= itd_points_death;
+				
+					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
+						Stats[client][POINTS] = itd_points_min;
+				
+					if(IsValidClient(assister))
+						Stats[assister][POINTS] += itd_points_assist;
+			
+					if(itd_points_assist != 0 && IsValidClient(assister))
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+			
+					if(itd_points_death != 0)
+						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);
+				}
+			}
+		}
+	}
+	
+	/*
 	// Kill Ball Holder
 	if(BallHolder == client)
 	{
@@ -3171,14 +3715,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		Call_PushCell(attacker);
 		Call_Finish();
 		
-		char attackername [PLATFORM_MAX_PATH];
-		GetClientName(attacker, attackername, sizeof(attackername));
-		
-		char clientname [PLATFORM_MAX_PATH];
-		GetClientName(client, clientname, sizeof(clientname));
-		
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -3206,6 +3743,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			}
 		}
 	}
+	*/
 }
 
 public Action Respawn_Player(Handle tmr, any client)
@@ -3284,8 +3822,7 @@ void ResetBall()
 	SpawnBall();
 	
 	// Play reset sound
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
@@ -3352,12 +3889,10 @@ public Action Command_Weapon(int client,int args)
 	return Plugin_Handled;
 }
 
-/*
 public Action Command_Test(int client,int args)
 {
 	
 }
-*/
 
 // Match End
 public Action Event_WinPanelMatch(Handle event, const char[] name, bool dontBroadcast)
@@ -3369,8 +3904,7 @@ public Action Event_WinPanelMatch(Handle event, const char[] name, bool dontBroa
 
 public Action MatchEndSound(Handle tmr)
 {
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
@@ -3557,9 +4091,12 @@ public void OnClientDisconnect(int client)
 	if(GetTeamClientCount(TR) == 0)
 		g_spawned_ct = false;
 	
-	// Both team no player
+	// both team no player
 	if(GetTeamClientCount(CT) == 0 && GetTeamClientCount(TR) == 0)
 		ServerCommand("mp_ignore_round_win_conditions 0");
+		
+	// save stats
+	SaveClientStats(client);
 }
 
 public Action Command_Vol(int client,int args)
@@ -3604,19 +4141,6 @@ public Action Command_Vol(int client,int args)
 		hBGMTimer[client] = CreateTimer(0.5, BGMTimer, client);
 	}
 	return Plugin_Handled;
-}
-
-public Action Event_PlayerTeam(Handle event, const char[] name, bool dontBroadcast)
-{
-	int client = GetClientOfUserId(GetEventInt(event, "userid"));
-    
-	if(!IsValidClient(client) || !IsClientInGame(client))
-		return Plugin_Continue;
-
-	if(!IsPlayerAlive(client) && !RoundEnd)
-		CreateTimer(8.0, Respawn_Player, client);
-        
-	return Plugin_Continue;
 }
 
 public Action Command_Join(int client, const char[] command, int argc)
@@ -3705,6 +4229,70 @@ public void OnConVarChanged(ConVar convar, const char[] oldValue, const char[] n
 	else if (convar == td_ballposition) 
 	{
 		itd_ballposition = GetConVarInt(td_ballposition);
+	}
+	else if (convar == td_stats_enabled) 
+	{
+		btd_stats_enabled = GetConVarBool(td_stats_enabled);
+	}
+	else if (convar == td_stats_min) 
+	{
+		itd_stats_min = GetConVarInt(td_stats_min);
+	}
+	else if (convar == td_points_enabled) 
+	{
+		btd_points_enabled = GetConVarBool(td_points_enabled);
+	}
+	else if (convar == td_points_td) 
+	{
+		itd_points_td = GetConVarInt(td_points_td);
+	}
+	else if (convar == td_points_kill) 
+	{
+		itd_points_kill = GetConVarInt(td_points_kill);
+	}
+	else if (convar == td_points_assist) 
+	{
+		itd_points_assist = GetConVarInt(td_points_assist);
+	}
+	else if (convar == td_points_bonus) 
+	{
+		ftd_points_bonus = GetConVarFloat(td_points_bonus);
+	}
+	else if (convar == td_points_death) 
+	{
+		itd_points_death = GetConVarInt(td_points_death);
+	}
+	else if (convar == td_points_dropball) 
+	{
+		itd_points_dropball = GetConVarInt(td_points_dropball);
+	}
+	else if (convar == td_points_killball) 
+	{
+		itd_points_killball = GetConVarInt(td_points_killball);
+	}
+	else if (convar == td_points_pickball) 
+	{
+		itd_points_pickball = GetConVarInt(td_points_pickball);
+	}
+	else if (convar == td_points_start) 
+	{
+		itd_points_start = GetConVarInt(td_points_start);
+	}
+	else if (convar == td_points_min) 
+	{
+		itd_points_min = GetConVarInt(td_points_min);
+	}
+	else if (convar == td_points_min_enabled) 
+	{
+		btd_points_min_enabled = GetConVarBool(td_points_min_enabled);
+	}
+	else if (convar == td_taser) 
+	{
+		btd_taser = GetConVarBool(td_taser);
+	}
+	else if (convar == td_healthshot) 
+	{
+		btd_healthshot = GetConVarBool(td_healthshot);
 	}
 }
 
@@ -3952,4 +4540,877 @@ public void Event_MatchRestart(Handle event, const char[] name, bool dontBroadca
 	// reset flags which event will use
 	g_spawned_t = false;
 	g_spawned_ct = false;
+}
+
+public int GetCurrentPlayers() 
+{
+	int count;
+	for (int i = 1; i <= MaxClients; i++) 
+	{
+		if (IsClientInGame(i) && !IsFakeClient(i)) 
+		{
+			count++;
+		}
+	}
+	return count;
+}
+
+public void OnSQLConnect(Handle owner, Handle hndl, const char[] error, any data)
+{
+	if (hndl == null)
+	{
+		SetFailState("(OnSQLConnect) Can't connect to mysql");
+		return;
+	}
+	
+	ddb = view_as<Database>(CloneHandle(hndl));
+	
+	CreateTable();
+}
+
+void CreateTable()
+{
+	char sQuery[1024];
+	Format(sQuery, sizeof(sQuery), 
+	"CREATE TABLE IF NOT EXISTS `%s`  \
+	( id INT NOT NULL AUTO_INCREMENT ,  \
+	steamid VARCHAR(32) NOT NULL ,  \
+	name VARCHAR(64) NOT NULL ,  \
+	points INT NOT NULL ,  \
+	kills INT NOT NULL ,  \
+	deaths INT NOT NULL ,  \
+	assists INT NOT NULL ,  \
+	touchdown INT NOT NULL ,  \
+	getball INT NOT NULL ,  \
+	dropball INT NOT NULL ,  \
+	killball INT NOT NULL ,  \
+	PRIMARY KEY (id))  \
+	ENGINE = InnoDB;", std_stats_table_name);
+	
+	ddb.Query(SQL_CreateTable, sQuery);
+}
+
+public void SQL_CreateTable(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_CreateTable) Fail at Query: %s", error);
+		return;
+	}
+	delete results;
+	
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsValidClient(i) && !IsFakeClient(i))
+		{
+			LoadClientStats(i);
+		}
+	}
+}
+
+void LoadClientStats(int client)
+{
+	if (!IsValidClient(client) || IsFakeClient(client))
+		return;
+	
+	char sCommunityID[32];
+	if (!GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID)))
+	{
+		LogError("Auth failed for client index %d", client);
+		return;
+	}
+	
+	char LoadQuery[512];
+	Format(LoadQuery, sizeof(LoadQuery), "SELECT * FROM `%s` WHERE steamid = '%s'", std_stats_table_name, sCommunityID);
+	
+	ddb.Query(SQL_LoadClientStats, LoadQuery, GetClientUserId(client));
+}
+
+public void SQL_LoadClientStats(Database db, DBResultSet results, const char[] error, any data)
+{
+	int client = GetClientOfUserId(data);
+	
+	if (!IsValidClient(client) || IsFakeClient(client))
+		return;
+	
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_LoadClientStats) Fail at Query: %s", error);
+		return;
+	}
+	else
+	{
+		// New player
+		if(!results.HasResults || !results.FetchRow())
+		{
+			char sCommunityID[32];
+			GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
+			
+			char clientname [PLATFORM_MAX_PATH];
+			GetClientName(client, clientname, sizeof(clientname));
+			
+			char InsertQuery[512];
+			Format(InsertQuery, sizeof(InsertQuery), "INSERT INTO `%s` VALUES(NULL,'%s','%s','%d','0','0','0','0','0','0','0');", std_stats_table_name, sCommunityID, clientname, itd_points_start);
+			ddb.Query(SQL_InsertCallback, InsertQuery, GetClientUserId(client));
+			
+			LogError(InsertQuery);
+		}
+		
+		else
+		{
+			Stats[client][POINTS] = results.FetchInt(3);
+			Stats[client][KILLS] = results.FetchInt(4);
+			Stats[client][DEATHS] = results.FetchInt(5);
+			Stats[client][ASSISTS] = results.FetchInt(6);
+			Stats[client][TOUCHDOWN] = results.FetchInt(7);
+			Stats[client][GETBALL] = results.FetchInt(8);
+			Stats[client][DROPBALL] = results.FetchInt(9);
+			Stats[client][KILLBALL] = results.FetchInt(10);
+		}
+	}
+}
+
+public void SQL_InsertCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("SQL_InsertCallback) Fail at Query: %s", error);
+		return;
+	}
+}
+
+void SaveClientStats(int client)
+{
+	if (!IsValidClient(client) || IsFakeClient(client)) 
+		return;
+	
+	char sCommunityID[32];
+	if (!GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID)))
+	{
+		LogError("Auth failed for client index %d", client);
+		return;
+	}
+	
+	char clientname [PLATFORM_MAX_PATH];
+	GetClientName(client, clientname, sizeof(clientname));
+			
+	char SaveQuery[512];
+	Format(SaveQuery, sizeof(SaveQuery),
+	"UPDATE `%s` SET name = '%s', points = '%i', kills = '%i', deaths='%i', assists='%i', touchdown='%i', getball='%i', dropball='%i',killball='%i' WHERE steamid = '%s';",
+	std_stats_table_name,
+	clientname,
+	Stats[client][POINTS],
+	Stats[client][KILLS],
+	Stats[client][DEATHS],
+	Stats[client][ASSISTS],
+	Stats[client][TOUCHDOWN],
+	Stats[client][GETBALL],
+	Stats[client][DROPBALL],
+	Stats[client][KILLBALL],
+	sCommunityID);
+	
+	ddb.Query(SQL_SaveCallback, SaveQuery, GetClientUserId(client))
+}
+
+public void SQL_SaveCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_SaveClientStats) Fail at Query: %s", error);
+		return;
+	}
+}
+
+public void OnPluginEnd() 
+{
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsValidClient(i) && !IsFakeClient(i)) 
+		{
+			SaveClientStats(i);
+		}
+	}
+}
+
+public Action Command_Rank(int client,int args)
+{
+	if(!btd_stats_enabled || !IsValidClient(client) || IsFakeClient(client))
+		return Plugin_Handled;
+		
+	char RankQuery[512];
+	Format(RankQuery, sizeof(RankQuery), "SELECT * FROM `%s` ORDER BY points DESC", std_stats_table_name);
+	
+	ddb.Query(SQL_RankCallback, RankQuery, GetClientUserId(client));
+	
+	/*
+	PrintToChat(client, "Point %d, Kill %d, Deaths %d, Assists %d, TD %d, getball %d, dropball %d, killball %d"
+	, Stats[client][POINTS], Stats[client][KILLS], Stats[client][DEATHS], Stats[client][ASSISTS], Stats[client][TOUCHDOWN], 
+	Stats[client][GETBALL], Stats[client][DROPBALL], Stats[client][KILLBALL]);
+	*/
+	
+	return Plugin_Handled;
+}
+
+public void SQL_RankCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_RankCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	int i;
+	char Auth_receive[32];
+	
+	iTotalPlayers = SQL_GetRowCount(results);
+	
+	char sCommunityID[32];
+	GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
+	
+	// get player's rank
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(1, Auth_receive, sizeof(Auth_receive));
+		
+		if(StrEqual(Auth_receive, sCommunityID))
+		{
+			CPrintToChat(client, "%T", "Command Rank", client, i, iTotalPlayers, Stats[client][POINTS], Stats[client][KILLS], Stats[client][DEATHS], Stats[client][ASSISTS], Stats[client][TOUCHDOWN]);
+			break;
+		}
+	}
+}
+
+public Action Command_Stats(int client,int args)
+{
+	if(!btd_stats_enabled || !IsValidClient(client) || IsFakeClient(client))
+		return Plugin_Handled;
+		
+	char RankQuery[512];
+	Format(RankQuery, sizeof(RankQuery), "SELECT * FROM `%s` ORDER BY points DESC", std_stats_table_name);
+	
+	ddb.Query(SQL_StatsCallback, RankQuery, GetClientUserId(client));
+	
+	return Plugin_Handled;
+}
+
+public void SQL_StatsCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_StatsCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	int i;
+	char Auth_receive[32];
+	
+	iTotalPlayers = SQL_GetRowCount(results);
+	
+	char sCommunityID[32];
+	GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
+	
+	char clientname [255];
+	GetClientName(client, clientname, sizeof(clientname));
+	
+	// get player's rank
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(1, Auth_receive, sizeof(Auth_receive));
+		
+		if(StrEqual(Auth_receive, sCommunityID))
+		{
+			break;
+		}
+	}
+	
+	// Create Menu
+	char temp[255];
+	char text[512];
+	
+	Menu statsmenu = new Menu(StatsMenu_Handler);
+	SetMenuPagination(statsmenu, 3);
+	
+	char title[64];
+	Format(title, sizeof(title), "%T \n \n", "Touchdown Stats", client, clientname);
+	SetMenuTitle(statsmenu, title);
+	
+	Format(temp, sizeof(temp), "%T \n", "Basic Stats", client);
+	StrCat(text, sizeof(text), temp);
+	Format(temp, sizeof(temp), "%T \n \n", "Stats 1", client, Stats[client][POINTS], i, iTotalPlayers);
+	StrCat(text, sizeof(text), temp);
+	statsmenu.AddItem("", text);
+	text="";
+	
+	Format(temp, sizeof(temp), "%T \n", "Kill Stats", client);
+	StrCat(text, sizeof(text), temp);
+	float kills = IntToFloat(Stats[client][KILLS]);
+	int ideaths = Stats[client][DEATHS];
+	int deaths;
+	if(ideaths == 0)
+		deaths = 1;
+	else deaths = ideaths;
+	Format(temp, sizeof(temp), "%T \n \n", "Stats 2", client, Stats[client][KILLS], Stats[client][DEATHS], Stats[client][ASSISTS], kills/deaths);
+	StrCat(text, sizeof(text), temp);
+	statsmenu.AddItem("", text);
+	text="";
+	
+	Format(temp, sizeof(temp), "%T \n", "Ball Stats", client);
+	StrCat(text, sizeof(text), temp);
+	Format(temp, sizeof(temp), "%T \n \n", "Stats 3", client, Stats[client][TOUCHDOWN], Stats[client][DROPBALL], Stats[client][GETBALL], Stats[client][KILLBALL]);
+	StrCat(text, sizeof(text), temp);
+	statsmenu.AddItem("", text);
+	text="";
+	
+	statsmenu.Display(client, MENU_TIME_FOREVER);
+}
+
+public int StatsMenu_Handler(Menu menu, MenuAction action, int client,int param)
+{
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+public float IntToFloat(int integer)
+{
+	char s[300];
+	IntToString(integer,s,sizeof(s));
+	return StringToFloat(s);
+}
+
+public Action Command_Top(int client,int args)
+{
+	if(!btd_stats_enabled || !IsValidClient(client) || IsFakeClient(client))
+		return Plugin_Handled;
+	
+	// Create Menu
+	Menu topmenu = new Menu(TopMenu_Handler);
+	
+	char topmenutitle[512];
+	Format(topmenutitle, sizeof(topmenutitle), "%T", "Top Menu Title", client);
+	topmenu.SetTitle(topmenutitle);
+		
+	// Add No MVP
+	char points[512];
+	Format(points, sizeof(points), "%T", "Top 10 Points", client);
+	topmenu.AddItem("points", points);
+	
+	char td[512];
+	Format(td, sizeof(td), "%T", "Top 10 Touchdown", client);
+	topmenu.AddItem("touchdown", td);
+	
+	char kills[512];
+	Format(kills, sizeof(kills), "%T", "Top 10 Kills", client);
+	topmenu.AddItem("kills", kills);
+	
+	char deaths[512];
+	Format(deaths, sizeof(deaths), "%T", "Top 10 Deaths", client);
+	topmenu.AddItem("deaths", deaths);
+	
+	char assists[512];
+	Format(assists, sizeof(assists), "%T", "Top 10 Assists", client);
+	topmenu.AddItem("assists", assists);
+	
+	char killball[512];
+	Format(killball, sizeof(killball), "%T", "Top 10 Killball", client);
+	topmenu.AddItem("killball", killball);
+	
+	char getball[512];
+	Format(getball, sizeof(getball), "%T", "Top 10 Getball", client);
+	topmenu.AddItem("getball", getball);
+	
+	char dropball[512];
+	Format(dropball, sizeof(dropball), "%T", "Top 10 Dropball", client);
+	topmenu.AddItem("dropball", dropball);
+
+	topmenu.Display(client, MENU_TIME_FOREVER);
+		
+	return Plugin_Handled;
+}
+
+public int TopMenu_Handler(Menu menu, MenuAction action, int client,int param)
+{
+	if(action == MenuAction_Select)
+	{
+		char menuitem[10];
+		GetMenuItem(menu, param, menuitem, sizeof(menuitem));
+		
+		if(StrEqual(menuitem, "points"))
+			ShowTopPoints(client);
+
+		else if(StrEqual(menuitem, "touchdown"))
+			ShowTopTouchdown(client);
+			
+		else if(StrEqual(menuitem, "kills"))
+			ShowTopKills(client);
+
+		else if(StrEqual(menuitem, "deaths"))
+			ShowTopDeaths(client);
+			
+		else if(StrEqual(menuitem, "assists"))
+			ShowTopAssists(client);
+			
+		else if(StrEqual(menuitem, "killball"))
+			ShowTopKillball(client);
+			
+		else if(StrEqual(menuitem, "getball"))
+			ShowTopGetball(client);
+			
+		else if(StrEqual(menuitem, "dropball"))
+			ShowTopDropball(client);
+	}
+	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopPoints(int client)
+{
+	char TopPointsQuery[512];
+	Format(TopPointsQuery, sizeof(TopPointsQuery), "SELECT * FROM `%s` ORDER BY points DESC LIMIT 10", std_stats_table_name);
+	
+	ddb.Query(SQL_TopPointsCallback, TopPointsQuery, GetClientUserId(client));
+}
+
+public void SQL_TopPointsCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopPointsCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu toppointsmenu = new Menu(TopPoints_MenuHandler);
+	toppointsmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Points Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Points", client, i, name, results.FetchInt(3));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	toppointsmenu.AddItem("", text);
+	
+	toppointsmenu.ExitButton = true;
+	
+	toppointsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopPoints_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopTouchdown(int client)
+{
+	char TopTouchdownQuery[512];
+	Format(TopTouchdownQuery, sizeof(TopTouchdownQuery), "SELECT * FROM `%s` ORDER BY touchdown DESC LIMIT 10", std_stats_table_name);
+	
+	ddb.Query(SQL_TopTouchdownCallback, TopTouchdownQuery, GetClientUserId(client));
+}
+
+public void SQL_TopTouchdownCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopTouchdownCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu TopTouchdownmenu = new Menu(TopTouchdown_MenuHandler);
+	TopTouchdownmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Touchdown Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Touchdown", client, i, name, results.FetchInt(7));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	TopTouchdownmenu.AddItem("", text);
+	
+	TopTouchdownmenu.ExitButton = true;
+	
+	TopTouchdownmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopTouchdown_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopKills(int client)
+{
+	char TopKillsQuery[512];
+	Format(TopKillsQuery, sizeof(TopKillsQuery), "SELECT * FROM `%s` ORDER BY kills DESC LIMIT 10", std_stats_table_name);
+	
+	ddb.Query(SQL_TopKillsCallback, TopKillsQuery, GetClientUserId(client));
+}
+
+public void SQL_TopKillsCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopKillsCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu TopKillsmenu = new Menu(TopKills_MenuHandler);
+	TopKillsmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Kills Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Kills", client, i, name, results.FetchInt(4));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	TopKillsmenu.AddItem("", text);
+	
+	TopKillsmenu.ExitButton = true;
+	
+	TopKillsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopKills_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopDeaths(int client)
+{
+	char TopDeathsQuery[512];
+	Format(TopDeathsQuery, sizeof(TopDeathsQuery), "SELECT * FROM `%s` ORDER BY deaths DESC LIMIT 10", std_stats_table_name);
+	
+	ddb.Query(SQL_TopDeathsCallback, TopDeathsQuery, GetClientUserId(client));
+}
+
+public void SQL_TopDeathsCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopDeathsCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu TopDeathsmenu = new Menu(TopDeaths_MenuHandler);
+	TopDeathsmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Deaths Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Deaths", client, i, name, results.FetchInt(5));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	TopDeathsmenu.AddItem("", text);
+	
+	TopDeathsmenu.ExitButton = true;
+	
+	TopDeathsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopDeaths_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopAssists(int client)
+{
+	char TopAssistsQuery[512];
+	Format(TopAssistsQuery, sizeof(TopAssistsQuery), "SELECT * FROM `%s` ORDER BY assists DESC LIMIT 10", std_stats_table_name);
+
+	ddb.Query(SQL_TopAssistsCallback, TopAssistsQuery, GetClientUserId(client));
+}
+
+public void SQL_TopAssistsCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopAssistsCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu TopAssistsmenu = new Menu(TopAssists_MenuHandler);
+	TopAssistsmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Assists Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Assists", client, i, name, results.FetchInt(6));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	TopAssistsmenu.AddItem("", text);
+	
+	TopAssistsmenu.ExitButton = true;
+	
+	TopAssistsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopAssists_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopKillball(int client)
+{
+	char TopKillballQuery[512];
+	Format(TopKillballQuery, sizeof(TopKillballQuery), "SELECT * FROM `%s` ORDER BY killball DESC LIMIT 10", std_stats_table_name);
+	
+	ddb.Query(SQL_TopKillballCallback, TopKillballQuery, GetClientUserId(client));
+}
+
+public void SQL_TopKillballCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopKillballCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu TopKillballmenu = new Menu(TopKillball_MenuHandler);
+	TopKillballmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Killball Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Killball", client, i, name, results.FetchInt(10));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	TopKillballmenu.AddItem("", text);
+	
+	TopKillballmenu.ExitButton = true;
+	
+	TopKillballmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopKillball_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopDropball(int client)
+{
+	char TopDropballQuery[512];
+	Format(TopDropballQuery, sizeof(TopDropballQuery), "SELECT * FROM `%s` ORDER BY dropball DESC LIMIT 10", std_stats_table_name);
+	
+	ddb.Query(SQL_TopDropballCallback, TopDropballQuery, GetClientUserId(client));
+}
+
+public void SQL_TopDropballCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopDropballCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu TopDropballmenu = new Menu(TopDropball_MenuHandler);
+	TopDropballmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Dropball Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Dropball", client, i, name, results.FetchInt(9));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	TopDropballmenu.AddItem("", text);
+	
+	TopDropballmenu.ExitButton = true;
+	
+	TopDropballmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopDropball_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
+}
+
+void ShowTopGetball(int client)
+{
+	char TopGetballQuery[512];
+	Format(TopGetballQuery, sizeof(TopGetballQuery), "SELECT * FROM `%s` ORDER BY getball DESC LIMIT 10", std_stats_table_name);
+	
+	ddb.Query(SQL_TopGetballCallback, TopGetballQuery, GetClientUserId(client));
+}
+
+public void SQL_TopGetballCallback(Database db, DBResultSet results, const char[] error, any data)
+{
+	if (db == null || strlen(error) > 0)
+	{
+		SetFailState("(SQL_TopGetballCallback) Fail at Query: %s", error);
+		return;
+	}
+	
+	int client = GetClientOfUserId(data);
+	char name[255];
+	char temp[255];
+	char text[512];
+	int i;
+	
+	Menu TopGetballmenu = new Menu(TopGetball_MenuHandler);
+	TopGetballmenu.SetTitle("");
+	
+	Format(temp, sizeof(temp), "%T \n \n", "Top Getball Title", client);
+	StrCat(text, sizeof(text), temp);
+	
+	while(results.HasResults && results.FetchRow())
+	{
+		i++;
+		results.FetchString(2, name, sizeof(name))
+		Format(temp, sizeof(temp), "%T \n", "Show Top Getball", client, i, name, results.FetchInt(8));
+		StrCat(text, sizeof(text), temp);
+	}
+	
+	TopGetballmenu.AddItem("", text);
+	
+	TopGetballmenu.ExitButton = true;
+	
+	TopGetballmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+}
+
+public int TopGetball_MenuHandler(Menu menu, MenuAction action, int client,int param)
+{	
+	if (action == MenuAction_End)
+	{
+		delete menu;
+	}
+	if (action == MenuAction_Select)
+	{
+		delete menu;
+	}
 }

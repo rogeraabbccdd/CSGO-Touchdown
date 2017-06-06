@@ -315,6 +315,76 @@
 		"zho"			"{GREEN}[Touch Down] {RED}你無法在暖場撿球."
 	}
 	
+	"Point Touchdown"
+	{
+		"#format"		"{1:d},{2:d}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {LIGHTGREEN}got {2} points {NORMAL}for {RED}touchdown."
+		"zho"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {RED}達陣,{LIGHTGREEN}獲得 {2} 點{NORMAL}."
+	}
+	
+	"Point Get Ball"
+	{
+		"#format"		"{1:d},{2:d}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {LIGHTGREEN}got {2} points {NORMAL}for {RED}picking up the ball."
+		"zho"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {RED}搶到球,{LIGHTGREEN}獲得 {2} 點{NORMAL}."
+	}
+	
+	"Point Drop Ball"
+	{
+		"#format"		"{1:d},{2:d}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {RED}lose {2} points {NORMAL}for {RED}droping the ball."
+		"zho"			"{GREEN}[Touch Down] {PINK}你{PURPLE} ({1}) {RED}掉球,{RED}失去 {2} 點{NORMAL}."
+	}
+	
+	"Point Kill Ball"
+	{
+		"#format"		"{1:d},{2:d},{3:s}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {LIGHTGREEN}got {2} points {NORMAL}for {RED}killing ball holder {PINK}{3}{NORMAL}."
+		"zho"			"{GREEN}[Touch Down] {PINK}你{PURPLE} ({1}) {RED}擊殺拿球的 {PINK}{3}{NORMAL},{LIGHTGREEN}獲得 {2} 點{NORMAL}."
+	}
+	
+	"Point Kill"
+	{
+		"#format"		"{1:d},{2:d},{3:s}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {LIGHTGREEN}got {2} points {NORMAL}for {RED}killing {PINK}{3}{NORMAL}."
+		"zho"			"{GREEN}[Touch Down] {PINK}你{PURPLE} ({1}) {RED}擊殺 {PINK}{3}{NORMAL},{LIGHTGREEN}獲得 {2} 點{NORMAL}."
+	}
+	
+	"Point Assist"
+	{
+		"#format"		"{1:d},{2:d},{3:s},{4:s}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {LIGHTGREEN}got {2} point {NORMAL}for {RED}assisting {PINK}{3} {RED} to kill {PINK}{4}{NORMAL}."
+		"zho"			"{GREEN}[Touch Down] {PINK}你{PURPLE} ({1}) {RED}協助 {PINK}{3} {RED}擊殺 {PINK}{4} {NORMAL},{LIGHTGREEN}獲得 {2} 點{NORMAL}."
+	}
+	
+	"Point Drop Ball"
+	{
+		"#format"		"{1:d},{2:d}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {RED}lose {2} points {NORMAL}for {RED}droping the ball."
+		"zho"			"{GREEN}[Touch Down] {PINK}你{PURPLE} ({1}) {RED}掉球,{RED}失去 {2} 點{NORMAL}."
+	}
+	
+	"Point Suicide"
+	{
+		"#format"		"{1:d},{2:d}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {RED}lose {2} points {NORMAL}for {RED}suiciding."
+		"zho"			"{GREEN}[Touch Down] {PINK}你{PURPLE} ({1}) {RED}自殺,{RED}失去 {2} 點{NORMAL}."
+	}
+	
+	"Point Death"
+	{
+		"#format"		"{1:d},{2:d},{3:s}"
+		"en"			"{GREEN}[Touch Down] {PINK}You{PURPLE} ({1}) {RED}lose {2} points {NORMAL}for {RED}killing by {PINK}{3}{NORMAL}."
+		"zho"			"{GREEN}[Touch Down] {PINK}你{PURPLE} ({1}) {RED}被 {PINK}{3} {RED}擊殺 {NORMAL},{RED}失去 {2} 點{NORMAL}."
+	}
+	
+	"Command Rank"
+	{
+		"#format"		"{1:d},{2:d},{3:d},{4:d},{5:d},{6:d},{7:d}"
+		"en"			"{GREEN}[Touch Down] {PINK}You {NORMAL}are ranked at {GREEN}{1}/{2} {NORMAL}, {PURPLE}{3} points{NORMAL}, {LIGHTGREEN} {4} kills{NORMAL},{RED} {5} deaths{NORMAL},{ORANGE} {6} assists{NORMAL} and {BLUE} {7} touchdown{NORMAL}."
+		"zho"			"{GREEN}[Touch Down] {PINK}你 {NORMAL}的排名是 {GREEN}{1}/{2} {NORMAL}, {PURPLE}{3} 點{NORMAL}, {LIGHTGREEN} {4} 擊殺{NORMAL},{RED} {5} 死亡{NORMAL},{ORANGE} {6} 助攻{NORMAL}, {BLUE}達陣 {7} 次{NORMAL}."
+	}
+	
 //**********************************************************************************************************************
 	
 	"Acquired Ball"
@@ -583,5 +653,229 @@
 		"#format"		""
 		"en"			"Random Weapons All The Time"
 		"zho"			"每次都選擇隨機武器"
+	}
+	
+	"Touchdown Stats"
+	{
+		"#format"		"{1:s}"
+		"en"			"{1}'s Touchdown Stats"
+		"zho"			"{1}的達陣模式統計"
+	}
+	
+	"Basic Stats"
+	{
+		"#format"		""
+		"en"			"Basic Stats"
+		"zho"			"基本統計"
+	}
+	
+	"Stats 1"
+	{
+		"#format"		"{1:d},{2:d},{3:d}"
+		"en"			"Points:{1}  Rank:{2}/{3}"
+		"zho"			"點數:{1}   排名:{2}/{3}"
+	}
+	
+	"Kill Stats"
+	{
+		"#format"		""
+		"en"			"Kill Stats"
+		"zho"			"擊殺統計"
+	}
+	
+	"Stats 2"
+	{
+		"#format"		"{1:d},{2:d},{3:d},{4:.2f}"
+		"en"			"Kills:{1}  Deaths:{2}  Assists:{3}  KDR:{4}"
+		"zho"			"擊殺:{1}   死亡:{2}   助攻:{3}   KDR:{4}"
+	}
+	
+	"Ball Stats"
+	{
+		"#format"		""
+		"en"			"Ball Stats"
+		"zho"			"球統計"
+	}
+	
+	"Stats 3"
+	{
+		"#format"		"{1:d},{2:d},{3:d},{4:d}"
+		"en"			"Touchdown:{1}  Dropball:{2}  Pickball:{3} \nKill Ballholder:{4}"
+		"zho"			"達陣:{1}   掉球:{2}   撿球:{3} \n擊殺拿球玩家:{4}"
+	}
+	
+	"Top Menu Title"
+	{
+		"#format"		""
+		"en"			"Top Menu"
+		"zho"			"前 10 排名"
+	}
+	
+	"Top 10 Points"
+	{
+		"#format"		""
+		"en"			"Top 10 Points"
+		"zho"			"點數"
+	}
+	
+	"Top Points Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Points Players"
+		"zho"			"點數前 10 名玩家"
+	}
+	
+	"Show Top Points"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} - Points:{3}"
+		"zho"			"#{1}. {2} - 點數{3}"
+	}
+	
+	"Top 10 Touchdown"
+	{
+		"#format"		""
+		"en"			"Top 10 Toudown"
+		"zho"			"達陣"
+	}
+	
+	"Top Touchdown Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Toudown Players"
+		"zho"			"達陣次數前 10 名玩家"
+	}
+	
+	"Show Top Touchdown"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} Touchdown:{3}"
+		"zho"			"#{1}. {2} 達陣數:{3}"
+	}
+	
+	"Top 10 Kills"
+	{
+		"#format"		""
+		"en"			"Top 10 Kills"
+		"zho"			"擊殺數"
+	}
+	
+	"Top Kills Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Kills Players"
+		"zho"			"擊殺數前 10 名玩家"
+	}
+	
+	"Show Top Kills"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} - Kills:{3}"
+		"zho"			"#{1}. {2} - 擊殺數:{3}"
+	}
+	
+	"Top 10 Deaths"
+	{
+		"#format"		""
+		"en"			"Top 10 Deaths"
+		"zho"			"死亡數"
+	}
+	
+	"Top Deaths Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Deaths Players"
+		"zho"			"死亡數前 10 名玩家"
+	}
+	
+	"Show Top Deaths"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} - Deaths:{3}"
+		"zho"			"#{1}. {2} - 死亡數:{3}"
+	}
+	
+	"Top 10 Assists"
+	{
+		"#format"		""
+		"en"			"Top 10 Assists"
+		"zho"			"助攻數"
+	}
+	
+	"Top Assists Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Assists Players"
+		"zho"			"助攻數前 10 名玩家"
+	}
+	
+	"Show Top Assists"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} - Assists:{3}"
+		"zho"			"#{1}. {2} - 助攻數:{3}"
+	}
+	
+	"Top 10 Killball"
+	{
+		"#format"		""
+		"en"			"Top 10 Kill Ballholder"
+		"zho"			"擊殺拿球玩家數"
+	}
+	
+	"Top Killball Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Kill Ballholder Players"
+		"zho"			"擊殺拿球玩家數前 10 名玩家"
+	}
+	
+	"Show Top Killball"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} - Kill Ballholder:{3}"
+		"zho"			"#{1}. {2} - 擊殺拿球玩家數:{3}"
+	}
+	
+	"Top 10 Dropball"
+	{
+		"#format"		""
+		"en"			"Top 10 Dropball"
+		"zho"			"掉球數"
+	}
+	
+	"Top Dropball Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Dropball Players"
+		"zho"			"掉球數前 10 名玩家"
+	}
+	
+	"Show Top Dropball"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} - Dropball:{3}"
+		"zho"			"#{1}. {2} - 掉球數:{3}"
+	}
+	
+	"Top 10 Getball"
+	{
+		"#format"		""
+		"en"			"Top 10 Pickup Ball"
+		"zho"			"撿球數"
+	}
+	
+	"Top Getball Title"
+	{
+		"#format"		""
+		"en"			"Showing Top 10 Pickup Ball Players"
+		"zho"			"撿球數前 10 名玩家"
+	}
+	
+	"Show Top Getball"
+	{
+		"#format"		"{1:d},{2:s},{3:d}"
+		"en"			"#{1}. {2} - Pickup:{3}"
+		"zho"			"#{1}. {2} - 撿球數:{3}"
 	}
 }	

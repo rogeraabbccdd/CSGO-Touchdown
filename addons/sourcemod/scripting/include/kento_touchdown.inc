@@ -26,6 +26,62 @@ native int Touchdown_GetBallDropTeam();
 native bool Touchdown_IsClientBallHolder(int client);
 
 /**
+ * Gets client points.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientPoints(int client);
+
+/**
+ * Gets client kills.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientKills(int client);
+
+/**
+ * Gets client deaths.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientDeaths(int client);
+
+/**
+ * Gets client assists.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientAssists(int client);
+
+/**
+ * Gets client touchdown.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientTouchdown(int client);
+
+/**
+ * Gets client kill ballholder.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientKillball(int client);
+
+/**
+ * Gets client drop ball.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientDropball(int client);
+
+/**
+ * Gets client pickup ball.
+ *
+ * @return	client points.
+ */
+native int Touchdown_GetClientGetball(int client);
+
+/**
  * Called when a player drop the ball.
  *
  * @param client     Player  index.
