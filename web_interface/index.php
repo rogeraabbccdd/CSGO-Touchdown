@@ -46,24 +46,12 @@ $start=$_GET["start"];
 $s=$_GET["s"];
 if (empty($start)) $start=0; 
 if (empty($s)) $s=0;
+
+$result=mysql_query("select * from ".$mysql_table."") or die('MySQL query error'); 
+$nummax=mysql_numrows($result);
 	
-if (!isset($_GET["name"]) || $_GET["name"] == "")
-{
-	$result=mysql_query("select * from ".$mysql_table."") or die('MySQL query error'); 
-	$nummax=mysql_numrows($result);
-	
-	$result=mysql_query("select * from ".$mysql_table." order by points DESC limit ".$start.",".$limit."") or die('MySQL query error'); 
-	$numb=mysql_numrows($result); 
-}
-else
-{
-	$searchname=$_GET["name"];
-	$result=mysql_query("select * from ".$mysql_table." where name like '%".$searchname."%'") or die('MySQL query error'); 
-	$nummax=mysql_numrows($result);
-	
-	$result=mysql_query("select * from ".$mysql_table." where name like '%".$searchname."%' order by points DESC limit ".$start.",".$limit."") or die('MySQL query error'); 
-	$numb=mysql_numrows($result); 
-}
+$result=mysql_query("select * from ".$mysql_table." order by points DESC limit ".$start.",".$limit."") or die('MySQL query error'); 
+$numb=mysql_numrows($result); 
 
 $rank=$start;
 
@@ -83,17 +71,38 @@ if (!empty($numb))
 		$dropball=mysql_result($result,$i,"dropball"); 
 		$killball=mysql_result($result,$i,"killball"); 
 		
-		echo "<tr><td align='center'>".$rank."</td>
-		<td>".$name."</td>
-		<td>".$points."</td>
-		<td>".$touchdown."</td>
-		<td>".$kills."</td>
-		<td>".$deaths."</td>
-		<td>".$assists."</td>
-		<td>".$getball."</td>
-		<td>".$dropball."</td>
-		<td>".$killball."</td>
-		<td><a href='https://steamcommunity.com/profiles/".$steamid."'>Link</a></td></tr>";
+		// no search, display all
+		if (!isset($_GET["name"]) || $_GET["name"] == "")
+		{
+			echo "<tr><td align='center'>".$rank."</td>
+			<td>".$name."</td>
+			<td>".$points."</td>
+			<td>".$touchdown."</td>
+			<td>".$kills."</td>
+			<td>".$deaths."</td>
+			<td>".$assists."</td>
+			<td>".$getball."</td>
+			<td>".$dropball."</td>
+			<td>".$killball."</td>
+			<td><a href='https://steamcommunity.com/profiles/".$steamid."'>Link</a></td></tr>";
+		}
+		else
+		{
+			if(strpos(strtolower($name), strtolower($_GET["name"])) !== false)
+			{
+				echo "<tr><td align='center'>".$rank."</td>
+				<td>".$name."</td>
+				<td>".$points."</td>
+				<td>".$touchdown."</td>
+				<td>".$kills."</td>
+				<td>".$deaths."</td>
+				<td>".$assists."</td>
+				<td>".$getball."</td>
+				<td>".$dropball."</td>
+				<td>".$killball."</td>
+				<td><a href='https://steamcommunity.com/profiles/".$steamid."'>Link</a></td></tr>";
+			}
+		}
 	}
 }
 
