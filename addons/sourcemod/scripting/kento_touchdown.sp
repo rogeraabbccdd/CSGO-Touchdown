@@ -29,6 +29,10 @@
 // Some changes (Remove respawn timer in warmup, add healthshot and taser)
 // Lots of New cvars
 //
+// 2.1
+// Remove insert sql query in error log. (I forgot to remove this before release.)
+// Fix kill timer bug.
+//
 // Maybe we can add
 // Jump Sound? jump_up.mp3
 // Critical sound
@@ -353,7 +357,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "2.0",
+	version = "2.1",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -1961,8 +1965,11 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 0)
 	{
-		KillTimer(hRoundCountdown);
-		hRoundCountdown = INVALID_HANDLE;
+		if(hRoundCountdown != INVALID_HANDLE)
+		{
+			KillTimer(hRoundCountdown);
+			hRoundCountdown = INVALID_HANDLE;
+		}
 	}
 }
 
@@ -2031,8 +2038,11 @@ public Action NextRoundCountdown(Handle tmr)
     // We don't need this in Half time and warmup
 	if (Switch || bWarmUp)
 	{
-		KillTimer(hNextRoundCountdown);
-		hNextRoundCountdown = INVALID_HANDLE;
+		if(hNextRoundCountdown != INVALID_HANDLE)
+		{
+			KillTimer(hNextRoundCountdown);
+			hNextRoundCountdown = INVALID_HANDLE;
+		}
 	}
 	
 	if (Nextroundtime == 6)
@@ -2135,8 +2145,11 @@ public Action NextRoundCountdown(Handle tmr)
 	
 	else if (Nextroundtime <= 0)
 	{
-		KillTimer(hNextRoundCountdown);
-		hNextRoundCountdown = INVALID_HANDLE;
+		if(hNextRoundCountdown != INVALID_HANDLE)
+		{
+			KillTimer(hNextRoundCountdown);
+			hNextRoundCountdown = INVALID_HANDLE;
+		}
 	}
 }
 
@@ -4646,8 +4659,6 @@ public void SQL_LoadClientStats(Database db, DBResultSet results, const char[] e
 			char InsertQuery[512];
 			Format(InsertQuery, sizeof(InsertQuery), "INSERT INTO `%s` VALUES(NULL,'%s','%s','%d','0','0','0','0','0','0','0');", std_stats_table_name, sCommunityID, clientname, itd_points_start);
 			ddb.Query(SQL_InsertCallback, InsertQuery, GetClientUserId(client));
-			
-			LogError(InsertQuery);
 		}
 		
 		else
