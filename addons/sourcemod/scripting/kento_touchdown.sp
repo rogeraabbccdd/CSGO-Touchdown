@@ -33,6 +33,10 @@
 // Remove insert sql query in error log. (I forgot to remove this before release.)
 // Fix kill timer bug.
 //
+// 2.2
+// Fix kill messages display wrong point 
+// Fix mp_ignore... cause warmup not end problem
+//
 // Maybe we can add
 // Jump Sound? jump_up.mp3
 // Critical sound
@@ -357,7 +361,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "2.1",
+	version = "2.2",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -1033,7 +1037,7 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 		g_spawned_ct = true;
 	
 	// both team have players
-	if(g_spawned_t && g_spawned_ct) 
+	if(g_spawned_t && g_spawned_ct && !bWarmUp) 
 		ServerCommand("mp_ignore_round_win_conditions 1");
 }
 
@@ -3568,8 +3572,8 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 					if(itd_points_assist != 0 && IsValidClient(assister))
 						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
 			
-					if(itd_points_kill != 0)
-						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], itd_points_kill, clientname);
+					if(itd_points_killball != 0)
+						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], itd_points_killball, clientname);
 			
 					if(itd_points_death != 0)
 						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
@@ -3639,7 +3643,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], score_dif_assister, attackername ,clientname);
 				
 					if(score_dif_attacker != 0)
-						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], score_dif_attacker, clientname);
+						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], score_dif_attacker, clientname);
 
 					if(itd_points_death != 0)
 						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
