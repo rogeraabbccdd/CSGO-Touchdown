@@ -430,7 +430,7 @@ public void OnPluginStart()
 	td_points_bonus = CreateConVar("sm_touchdown_points_bonus",  "2.0", "Offense / Defence bonus multiplier", FCVAR_NOTIFY, true, 0.0);
 	td_points_death = CreateConVar("sm_touchdown_points_death",  "0", "How many points player will lose when he killed?", FCVAR_NOTIFY, true, 0.0);
 	td_points_dropball = CreateConVar("sm_touchdown_points_dropball",  "0", "How many points player will lose when he drop ball?", FCVAR_NOTIFY, true, 0.0);
-	td_points_killball = CreateConVar("sm_touchdown_points_killball",  "0", "How many points player will get when he kill ball holder?", FCVAR_NOTIFY, true, 0.0);
+	td_points_killball = CreateConVar("sm_touchdown_points_killball",  "2", "How many points player will get when he kill ball holder?", FCVAR_NOTIFY, true, 0.0);
 	td_points_pickball = CreateConVar("sm_touchdown_points_pickball",  "2", "How many points player will get when he pick up the ball?", FCVAR_NOTIFY, true, 0.0);
 	td_points_start = CreateConVar("sm_touchdown_points_start",  "0", "Starting points", FCVAR_NOTIFY, true, 0.0);
 	td_points_min_enabled = CreateConVar("sm_touchdown_points_min_enabled",  "1", "Enable minimum points?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
