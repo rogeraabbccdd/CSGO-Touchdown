@@ -37,6 +37,9 @@
 // Fix kill messages display wrong point 
 // Fix mp_ignore... cause warmup not end problem
 //
+// 2.3
+// Fix pistol menu.
+//
 // Maybe we can add
 // Jump Sound? jump_up.mp3
 // Critical sound
@@ -361,7 +364,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "2.2",
+	version = "2.3",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -1265,7 +1268,8 @@ public int MenuHandlers_PrimaryWeapon(Menu menu, MenuAction action, int client, 
 			menu2.AddItem("weapon_elite", 		"Dual burretas");
 			menu2.AddItem("weapon_fiveseven",	"Five seven");
 			menu2.AddItem("weapon_glock", 		"Glock");
-			menu2.AddItem("weapon_hkp2000", 	"USP");
+			menu2.AddItem("weapon_hkp2000", 	"P2000");
+			menu2.AddItem("weapon_usp_silencer", 	"USP-S");
 			menu2.AddItem("weapon_p250", 		"P250");
 			menu2.AddItem("weapon_tec9", 		"TEC-9");
 			SetMenuExitButton(menu2, false);
