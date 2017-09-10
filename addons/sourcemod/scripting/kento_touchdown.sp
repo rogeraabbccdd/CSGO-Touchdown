@@ -40,6 +40,12 @@
 // 2.3
 // Fix pistol menu.
 //
+// 2.4
+// Fix no touchdown in databases.cfg plugin failed to load.
+// Change !vol limit from "0.2~1.0" to "0.0~1.0".
+// Points and stats are disabled by default now.
+// Start cleaning my shit code.
+//
 // Maybe we can add
 // Jump Sound? jump_up.mp3
 // Critical sound
@@ -315,14 +321,16 @@ int score_t2;
 
 // Weapons
 // From boomix's capture the flag
-char PrimaryWeapon[18][50] = {
+char PrimaryWeapon[18][50] = 
+{
     "weapon_m4a1", "weapon_m4a1_silencer", "weapon_ak47", "weapon_aug", "weapon_bizon", "weapon_famas", 
     "weapon_galilar", "weapon_mac10",
     "weapon_mag7", "weapon_mp7", "weapon_mp9", "weapon_nova", "weapon_p90", "weapon_sawedoff",
     "weapon_sg556", "weapon_ssg08", "weapon_ump45", "weapon_xm1014"
 };
 
-char SecondaryWeapon[10][50] =  { 
+char SecondaryWeapon[10][50] = 
+{ 
 	"weapon_deagle", "weapon_elite", "weapon_fiveseven" , "weapon_glock", "weapon_hkp2000", 
 	"weapon_usp_silencer", "weapon_tec9", "weapon_p250", "weapon_cz75a", "weapon_revolver"
 };
@@ -364,7 +372,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "2.3",
+	version = "2.4",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -420,10 +428,10 @@ public void OnPluginStart()
 	td_taser = CreateConVar("sm_touchdown_taser",  "1", "Give player taser?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	td_healthshot = CreateConVar("sm_touchdown_healthshot",  "1", "Give player healthshot?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	
-	td_stats_enabled = CreateConVar("sm_touchdown_stats_enabled",  "1", "Enable stats or not? (MYSQL only!)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	td_stats_enabled = CreateConVar("sm_touchdown_stats_enabled",  "0", "Enable stats or not? (MYSQL only!)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	td_stats_min = CreateConVar("sm_touchdown_stats_min",  "4", "Min player to count stats.", FCVAR_NOTIFY, true, 0.0);
 	td_stats_table_name = CreateConVar("sm_touchdown_stats_table",  "touchdown", "MySQL table name for touchdown.");
-	td_points_enabled = CreateConVar("sm_touchdown_points_enabled",  "1", "Enable points or not?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	td_points_enabled = CreateConVar("sm_touchdown_points_enabled",  "0", "Enable points or not?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	
 	// Points cvar
 	// http://s4league.wikia.com/wiki/Touchdown#Scoring
@@ -601,15 +609,18 @@ public void OnConfigsExecuted()
 {
 	LoadMapConfig(); 
 	
-	// Mysql
-	if (SQL_CheckConfig("touchdown"))
+	// Mysql, No need to do this if points and stats are disabled.
+	if(btd_stats_enabled && btd_points_enabled)
 	{
-		SQL_TConnect(OnSQLConnect, "touchdown");
-	}
-	else if (!SQL_CheckConfig("touchdown"))
-	{
-		SetFailState("Can't find an entry in your databases.cfg with the name \"touchdown\".");
-		return;
+		if (SQL_CheckConfig("touchdown"))
+		{
+			SQL_TConnect(OnSQLConnect, "touchdown");
+		}
+		else if (!SQL_CheckConfig("touchdown"))
+		{
+			SetFailState("Can't find an entry in your databases.cfg with the name \"touchdown\".");
+			return;
+		}
 	}
 }
 
@@ -2278,9 +2289,6 @@ public void OnStartTouch(int ent, int client)
 	char Item[255];
 	GetEntPropString(ent, Prop_Data, "m_iName", Item, sizeof(Item));
 	
-	char clientname [PLATFORM_MAX_PATH];
-	GetClientName(client, clientname, sizeof(clientname));
-	
 	int i;
 	
 	// Someone get the ball
@@ -2310,7 +2318,7 @@ public void OnStartTouch(int ent, int client)
 				// TR get the ball
 				if(GetClientTeam(client) == TR)
 				{
-					CPrintToChat(i, "%T", "Get Ball T", i, clientname);
+					CPrintToChat(i, "%T", "Get Ball T", i, client);
 					
 					// TR play attack Sound
 					if(GetClientTeam(i) == TR)
@@ -2389,7 +2397,7 @@ public void OnStartTouch(int ent, int client)
 				// CT get the ball
 				if(GetClientTeam(client) == CT)
 				{
-					CPrintToChat(i, "%T", "Get Ball CT", i, clientname);
+					CPrintToChat(i, "%T", "Get Ball CT", i, client);
 					
 					// CT play attack Sound
 					if(GetClientTeam(i) == CT)
@@ -2493,7 +2501,7 @@ public void OnStartTouch(int ent, int client)
 			{
 				if (IsValidClient(i) && !IsFakeClient(i)) 
 				{
-					CPrintToChat(i, "%T", "Touchdown T", i, clientname);
+					CPrintToChat(i, "%T", "Touchdown T", i, client);
 				}
 			}
 		}
@@ -2523,7 +2531,7 @@ public void OnStartTouch(int ent, int client)
 			{
 				if (IsValidClient(i) && !IsFakeClient(i)) 
 				{
-					CPrintToChat(i, "%T", "Touchdown CT", i, clientname);
+					CPrintToChat(i, "%T", "Touchdown CT", i, client);
 				}
 			}
 		}
@@ -2632,9 +2640,6 @@ void GetBall(int client)
 		if(btd_points_enabled)
 		{
 			Stats[client][POINTS] += itd_points_pickball;
-		
-			char clientname [PLATFORM_MAX_PATH];
-			GetClientName(client, clientname, sizeof(clientname));
 		
 			if(itd_points_pickball != 0)
 				CPrintToChat(client, "%T", "Point Get Ball", client, Stats[client][POINTS], itd_points_pickball);
@@ -2831,9 +2836,6 @@ void DropBall(int client)
 {
 	if(!IsValidClient(client))
 		return;
-		
-	char clientname [PLATFORM_MAX_PATH];
-	GetClientName(client, clientname, sizeof(clientname));
 	
 	// Call forward
 	Call_StartForward(OnPlayerDropBall);
@@ -2917,10 +2919,10 @@ void DropBall(int client)
 		if (IsValidClient(i) && GetClientTeam(i) != SPEC)
 		{
 			if(GetClientTeam(client) == TR)
-				CPrintToChat(i, "%T", "Drop Ball T", i, clientname);
+				CPrintToChat(i, "%T", "Drop Ball T", i, client);
 				
 			if(GetClientTeam(client) == CT)
-				CPrintToChat(i, "%T", "Drop Ball CT", i, clientname);
+				CPrintToChat(i, "%T", "Drop Ball CT", i, client);
 			
 			// Nice Chance!
 			if(GetClientTeam(i) != GetClientTeam(client))
@@ -3015,9 +3017,6 @@ void GoalBall(int client)
 		if(btd_points_enabled)
 		{
 			Stats[client][POINTS] += itd_points_td;
-		
-			char clientname [PLATFORM_MAX_PATH];
-			GetClientName(client, clientname, sizeof(clientname));
 		
 			if(itd_points_td != 0)
 				CPrintToChat(client, "%T", "Point Touchdown", client, Stats[client][POINTS], itd_points_td);
@@ -3399,15 +3398,6 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
 	int assister = GetClientOfUserId(GetEventInt(event, "assister"));
 	
-	char attackername [PLATFORM_MAX_PATH];
-	GetClientName(attacker, attackername, sizeof(attackername));
-		
-	char clientname [PLATFORM_MAX_PATH];
-	GetClientName(client, clientname, sizeof(clientname));
-	
-	char assistername [PLATFORM_MAX_PATH];
-	GetClientName(assister, assistername, sizeof(assistername));
-	
 	// We don't need to respawn player in warmup.
 	if(!bWarmUp)
 	{
@@ -3486,7 +3476,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 						Stats[client][POINTS] = itd_points_min;
 					
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
 			
 					if(itd_points_death != 0)
 						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);	
@@ -3516,7 +3506,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 						Stats[client][POINTS] = itd_points_min;
 				
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
 			
 					if(itd_points_death != 0)
 						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);
@@ -3574,13 +3564,13 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 						Stats[assister][POINTS] += itd_points_assist;
 				
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
 			
 					if(itd_points_killball != 0)
-						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], itd_points_killball, clientname);
+						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], itd_points_killball, client);
 			
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attacker);
 				}
 			}
 		
@@ -3609,10 +3599,10 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 
 					// Not suicide
 					if(GetClientTeam(attacker) == TR)
-						CPrintToChat(i, "%T", "Kill Ball T", i, attackername, clientname);
+						CPrintToChat(i, "%T", "Kill Ball T", i, attacker, client);
 					
 					else if(GetClientTeam(attacker) == CT)
-						CPrintToChat(i, "%T", "Kill Ball CT", i, attackername, clientname);
+						CPrintToChat(i, "%T", "Kill Ball CT", i, attacker, client);
 				}
 			}
 		}
@@ -3644,13 +3634,13 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 						Stats[assister][POINTS] += score_dif_assister;
 			
 					if(score_dif_assister != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], score_dif_assister, attackername ,clientname);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], score_dif_assister, attacker ,client);
 				
 					if(score_dif_attacker != 0)
-						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], score_dif_attacker, clientname);
+						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], score_dif_attacker, client);
 
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attacker);
 				}
 			}
 		}
@@ -3682,13 +3672,13 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 						Stats[assister][POINTS] += itd_points_assist;
 				
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
 				
 					if(itd_points_kill != 0)
-						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], itd_points_kill, clientname);
+						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], itd_points_kill, client);
 				
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attackername);
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attacker);
 				}
 			}
 		}
@@ -3715,7 +3705,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 						Stats[assister][POINTS] += itd_points_assist;
 			
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attackername, clientname);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
 			
 					if(itd_points_death != 0)
 						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);
@@ -3723,47 +3713,6 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			}
 		}
 	}
-	
-	/*
-	// Kill Ball Holder
-	if(BallHolder == client)
-	{
-		DropBall(client);
-		
-		Call_StartForward(OnPlayerKillBall);
-		Call_PushCell(client);
-		Call_PushCell(attacker);
-		Call_Finish();
-		
-		for (int i = 1; i <= MaxClients; i++)
-		{
-			if (IsValidClient(i) && !IsFakeClient(i)) 
-			{
-				if(hAcquiredBallText[i] != INVALID_HANDLE)
-				{
-					KillTimer(hAcquiredBallText[i]);
-				}
-				hAcquiredBallText[i] = INVALID_HANDLE;
-	
-				if(hRAcquiredBallText[i] != INVALID_HANDLE)
-				{
-					KillTimer(hRAcquiredBallText[i]);
-				}
-				hRAcquiredBallText[i] = INVALID_HANDLE;
-				
-				// Not suicide
-				if(client != attacker && IsValidClient(client) && IsValidClient(attacker))
-				{
-					if(GetClientTeam(attacker) == TR)
-						CPrintToChat(i, "%T", "Kill Ball T", i, attackername, clientname);
-					
-					else if(GetClientTeam(attacker) == CT)
-						CPrintToChat(i, "%T", "Kill Ball CT", i, attackername, clientname);
-				}
-			}
-		}
-	}
-	*/
 }
 
 public Action Respawn_Player(Handle tmr, any client)
@@ -4130,7 +4079,7 @@ public Action Command_Vol(int client,int args)
 		GetCmdArg(1, arg, sizeof(arg));
 		volume = StringToFloat(arg);
 		
-		if (volume < 0.2 || volume > 1.0)
+		if (volume < 0.0 || volume > 1.0)
 		{
 			CPrintToChat(client, "%T", "Volume 1", client);
 			return Plugin_Handled;
@@ -4661,11 +4610,8 @@ public void SQL_LoadClientStats(Database db, DBResultSet results, const char[] e
 			char sCommunityID[32];
 			GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
 			
-			char clientname [PLATFORM_MAX_PATH];
-			GetClientName(client, clientname, sizeof(clientname));
-			
 			char InsertQuery[512];
-			Format(InsertQuery, sizeof(InsertQuery), "INSERT INTO `%s` VALUES(NULL,'%s','%s','%d','0','0','0','0','0','0','0');", std_stats_table_name, sCommunityID, clientname, itd_points_start);
+			Format(InsertQuery, sizeof(InsertQuery), "INSERT INTO `%s` VALUES(NULL,'%s','%N','%d','0','0','0','0','0','0','0');", std_stats_table_name, sCommunityID, client, itd_points_start);
 			ddb.Query(SQL_InsertCallback, InsertQuery, GetClientUserId(client));
 		}
 		
@@ -4703,15 +4649,12 @@ void SaveClientStats(int client)
 		LogError("Auth failed for client index %d", client);
 		return;
 	}
-	
-	char clientname [PLATFORM_MAX_PATH];
-	GetClientName(client, clientname, sizeof(clientname));
 			
 	char SaveQuery[512];
 	Format(SaveQuery, sizeof(SaveQuery),
-	"UPDATE `%s` SET name = '%s', points = '%i', kills = '%i', deaths='%i', assists='%i', touchdown='%i', getball='%i', dropball='%i',killball='%i' WHERE steamid = '%s';",
+	"UPDATE `%s` SET name = '%N', points = '%i', kills = '%i', deaths='%i', assists='%i', touchdown='%i', getball='%i', dropball='%i',killball='%i' WHERE steamid = '%s';",
 	std_stats_table_name,
-	clientname,
+	client,
 	Stats[client][POINTS],
 	Stats[client][KILLS],
 	Stats[client][DEATHS],
@@ -4825,9 +4768,6 @@ public void SQL_StatsCallback(Database db, DBResultSet results, const char[] err
 	char sCommunityID[32];
 	GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
 	
-	char clientname [255];
-	GetClientName(client, clientname, sizeof(clientname));
-	
 	// get player's rank
 	while(results.HasResults && results.FetchRow())
 	{
@@ -4848,7 +4788,7 @@ public void SQL_StatsCallback(Database db, DBResultSet results, const char[] err
 	SetMenuPagination(statsmenu, 3);
 	
 	char title[64];
-	Format(title, sizeof(title), "%T \n \n", "Touchdown Stats", client, clientname);
+	Format(title, sizeof(title), "%T \n \n", "Touchdown Stats", client, client);
 	SetMenuTitle(statsmenu, title);
 	
 	Format(temp, sizeof(temp), "%T \n", "Basic Stats", client);
