@@ -28,7 +28,7 @@
 <?php
 require ("config.php");
 
-$result=mysql_query("select * from ".$mysql_table."") or die('MySQL query error'); 
+$result=mysql_query("select * from ".$mysql_table." order by points DESC") or die('MySQL query error'); 
 $numb=mysql_numrows($result);
 
 $rank=0;
