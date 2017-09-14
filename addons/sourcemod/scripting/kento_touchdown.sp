@@ -45,6 +45,11 @@
 // Change !vol limit from "0.2~1.0" to "0.0~1.0".
 // Points and stats are disabled by default now.
 // Start cleaning my shit code.
+// 
+// 2.5
+// Add S4 player dead sound.
+// Add dissolve effect to dead bodies. (like original S4.)
+// 
 //
 // Maybe we can add
 // Jump Sound? jump_up.mp3
@@ -372,7 +377,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "2.4",
+	version = "2.5",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -793,6 +798,11 @@ public void OnMapStart()
 	AddFileToDownloadsTable("sound/touchdown/_eu_ball_reset.mp3");
 	AddFileToDownloadsTable("sound/touchdown/player_respawn.mp3");
 	//AddFileToDownloadsTable("sound/touchdown/jump_up.mp3");
+	AddFileToDownloadsTable("sound/touchdown/player_dead.mp3");
+	AddFileToDownloadsTable("sound/touchdown/_eu_voice_man_dead_blow.mp3");
+	AddFileToDownloadsTable("sound/touchdown/_eu_voice_man_dead_hard.mp3");
+	AddFileToDownloadsTable("sound/touchdown/_eu_voice_man_dead_normal.mp3");
+	AddFileToDownloadsTable("sound/touchdown/_eu_voice_man_dead_shock.mp3");
 	
 	// Ball
 	AddFileToDownloadsTable("sound/touchdown/pokeball_bounce.mp3");
@@ -951,6 +961,11 @@ public void OnMapStart()
 	FakePrecacheSound("*/touchdown/_eu_ball_reset.mp3");
 	FakePrecacheSound("*/touchdown/player_respawn.mp3");
 	//FakePrecacheSound("*/touchdown/jump_up.mp3");
+	FakePrecacheSound("*/touchdown/player_dead.mp3");
+	FakePrecacheSound("*/touchdown/_eu_voice_man_dead_blow.mp3");
+	FakePrecacheSound("*/touchdown/_eu_voice_man_dead_hard.mp3");
+	FakePrecacheSound("*/touchdown/_eu_voice_man_dead_normal.mp3");
+	FakePrecacheSound("*/touchdown/_eu_voice_man_dead_shock.mp3");
 	
 	// Precache BGM
 	FakePrecacheSound("*/touchdown/bgm/Chain_Reaction.mp3");
@@ -3409,8 +3424,8 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		CreateTimer(ftd_respawn, Respawn_Player, client);
 	}
 	
-	// Not suicide and not kill ball holder
-	if(IsValidClient(attacker) && client != BallHolder && client != attacker && IsValidClient(client))
+	// Play kill sounf when player not suicide
+	if(IsValidClient(attacker) && client != attacker && IsValidClient(client))
 	{
 		// Play sound
 		switch(GetRandomInt(1,8))
@@ -3450,6 +3465,39 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			}
 		}
 	}
+	
+	// Play death sound and dissolve effect
+	if(IsValidClient(client))
+	{	
+		// Sound
+		EmitSoundToClient(client, "*/touchdown/player_dead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+		
+		// EU S4 doesn't really have "voice", only sound effect wtf.
+		switch(GetRandomInt(1,4))
+		{
+			case 1:
+			{
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_blow.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			}
+			case 2:
+			{
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_hard.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			}
+			case 3:
+			{
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_normal.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			}
+			case 4:
+			{
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_shock.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			}
+		}
+		
+		// Dissolve
+		// https://forums.alliedmods.net/showthread.php?t=71084
+		CreateTimer(0.2, Dissolve, client);
+	}
+	
 	
 	// someone have the ball
 	if (BallHolder != 0)
@@ -5366,4 +5414,31 @@ public int TopGetball_MenuHandler(Menu menu, MenuAction action, int client,int p
 	{
 		delete menu;
 	}
+}
+
+// Dissolve
+// https://forums.alliedmods.net/showthread.php?t=71084
+public Action Dissolve(Handle timer, any client)
+{
+	if (!IsValidEntity(client))	return;
+    
+	int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
+	if (ragdoll<0)
+	{
+		LogError("Could not get ragdoll for player!");  
+		return;
+	}
+    
+	char dname[32];
+	Format(dname, sizeof(dname), "dis_%d", client);
+  
+	int ent = CreateEntityByName("env_entity_dissolver");
+	if (ent>0)
+	{
+		DispatchKeyValue(ragdoll, "targetname", dname);
+		DispatchKeyValue(ent, "dissolvetype", "2");
+		DispatchKeyValue(ent, "target", dname);
+		AcceptEntityInput(ent, "Dissolve");
+		AcceptEntityInput(ent, "kill");
+	} 
 }
