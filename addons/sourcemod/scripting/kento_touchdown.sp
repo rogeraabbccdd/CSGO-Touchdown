@@ -50,6 +50,9 @@
 // Add S4 player dead sound.
 // Add dissolve effect to dead bodies. (like original S4.)
 // 
+// 2.6
+// Optimize
+// Fix some bug.
 //
 // Maybe we can add
 // Jump Sound? jump_up.mp3
@@ -230,8 +233,6 @@ float roundtime;
 
 Handle hRoundCountdown = INVALID_HANDLE;
 
-Handle mp_restartgame = INVALID_HANDLE;
-
 // Ball model from mottzi's Simple Ball Plugin
 // https://forums.alliedmods.net/showthread.php?p=2423345
 #define BallModelPath "models/knastjunkies/soccerball.mdl"
@@ -265,6 +266,7 @@ Handle clientVolCookie;
 float g_fvol[MAXPLAYERS+1];
 
 // Cvar
+ConVar mp_restartgame;
 ConVar td_respawn;
 ConVar td_reset;
 ConVar td_ballposition;
@@ -377,7 +379,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "2.5",
+	version = "2.6",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -420,10 +422,7 @@ public void OnPluginStart()
 	HookUserMessage(GetUserMessageId("TextMsg"), MsgHook_AdjustMoney, true);
 	
 	mp_restartgame = FindConVar("mp_restartgame");
-	if ( mp_restartgame != INVALID_HANDLE )
-    {
-		 HookConVarChange(mp_restartgame, Restart_Handler);
-	}
+	mp_restartgame.AddChangeHook(Restart_Handler);
 	
 	// Cvar
 	td_respawn = CreateConVar("sm_touchdown_respawn",  "8.0", "Respawn Time.", FCVAR_NOTIFY, true, 0.0);
@@ -452,53 +451,38 @@ public void OnPluginStart()
 	td_points_min_enabled = CreateConVar("sm_touchdown_points_min_enabled",  "1", "Enable minimum points?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	td_points_min = CreateConVar("sm_touchdown_points_min",  "0", "Minimum points", FCVAR_NOTIFY, true, 0.0);
 	
-	HookConVarChange(td_respawn, OnConVarChanged);
-	HookConVarChange(td_reset, OnConVarChanged);
-	HookConVarChange(td_ballposition, OnConVarChanged);
-	HookConVarChange(td_taser, OnConVarChanged);
-	HookConVarChange(td_healthshot, OnConVarChanged);
+	td_respawn.AddChangeHook(OnConVarChanged);
+	td_reset.AddChangeHook(OnConVarChanged);
+	td_ballposition.AddChangeHook(OnConVarChanged);
+	td_taser.AddChangeHook(OnConVarChanged);
+	td_healthshot.AddChangeHook(OnConVarChanged);
 	
-	HookConVarChange(td_stats_enabled, OnConVarChanged);
-	HookConVarChange(td_stats_min, OnConVarChanged);
-	HookConVarChange(td_points_enabled, OnConVarChanged);
+	td_stats_enabled.AddChangeHook(OnConVarChanged);
+	td_stats_min.AddChangeHook(OnConVarChanged);
+	td_points_enabled.AddChangeHook(OnConVarChanged);
 	
-	HookConVarChange(td_points_td, OnConVarChanged);
-	HookConVarChange(td_points_kill, OnConVarChanged);
-	HookConVarChange(td_points_assist, OnConVarChanged);
-	HookConVarChange(td_points_bonus, OnConVarChanged);
-	HookConVarChange(td_points_death, OnConVarChanged);
-	HookConVarChange(td_points_dropball, OnConVarChanged);
-	HookConVarChange(td_points_killball, OnConVarChanged);
-	HookConVarChange(td_points_pickball, OnConVarChanged);
-	HookConVarChange(td_points_start, OnConVarChanged);
-	HookConVarChange(td_points_min, OnConVarChanged);
-	HookConVarChange(td_points_min_enabled, OnConVarChanged);
+	td_points_td.AddChangeHook(OnConVarChanged);
+	td_points_kill.AddChangeHook(OnConVarChanged);
+	td_points_assist.AddChangeHook(OnConVarChanged);
+	td_points_bonus.AddChangeHook(OnConVarChanged);
+	td_points_death.AddChangeHook(OnConVarChanged);
+	td_points_dropball.AddChangeHook(OnConVarChanged);
+	td_points_killball.AddChangeHook(OnConVarChanged);
+	td_points_pickball.AddChangeHook(OnConVarChanged);
+	td_points_start.AddChangeHook(OnConVarChanged);
+	td_points_min.AddChangeHook(OnConVarChanged);
+	td_points_min_enabled.AddChangeHook(OnConVarChanged);
 	
-	GetConVarString(td_stats_table_name, std_stats_table_name, sizeof(std_stats_table_name));
+	td_stats_table_name.GetString(std_stats_table_name, sizeof(std_stats_table_name));
 	
 	AutoExecConfig(true, "kento_touchdown");
 	
-	ftd_respawn = GetConVarFloat(td_respawn);
-	ftd_reset = GetConVarFloat(td_reset);
-	itd_ballposition = GetConVarInt(td_ballposition);
-	btd_taser = GetConVarBool(td_taser);
-	btd_healthshot = GetConVarBool(td_healthshot);
-	
-	btd_stats_enabled = GetConVarBool(td_stats_enabled);
-	itd_stats_min = GetConVarInt(td_stats_min);
-	btd_points_enabled = GetConVarBool(td_stats_enabled);
-	
-	itd_points_td = GetConVarInt(td_points_td);
-	itd_points_kill = GetConVarInt(td_points_kill);
-	itd_points_assist = GetConVarInt(td_points_assist);
-	ftd_points_bonus = GetConVarFloat(td_points_bonus);
-	itd_points_death = GetConVarInt(td_points_death);
-	itd_points_dropball = GetConVarInt(td_points_dropball);
-	itd_points_killball = GetConVarInt(td_points_killball);
-	itd_points_pickball = GetConVarInt(td_points_pickball);
-	itd_points_start = GetConVarInt(td_points_start);
-	itd_points_min = GetConVarInt(td_points_min);
-	btd_points_min_enabled = GetConVarBool(td_points_min_enabled);
+	/* Late load? I think you should reload the map, not only reload the plugin :/
+	for(int i = 1; i <= MaxClients; i++)
+	{ 
+		if(IsValidClient(i) && !IsFakeClient(i))	OnClientCookiesCached(i);
+	}
+	*/
 }
 
 // Create natives and forwards
@@ -615,7 +599,7 @@ public void OnConfigsExecuted()
 	LoadMapConfig(); 
 	
 	// Mysql, No need to do this if points and stats are disabled.
-	if(btd_stats_enabled && btd_points_enabled)
+	if(btd_stats_enabled || btd_points_enabled)
 	{
 		if (SQL_CheckConfig("touchdown"))
 		{
@@ -627,6 +611,28 @@ public void OnConfigsExecuted()
 			return;
 		}
 	}
+	
+	ftd_respawn = td_respawn.FloatValue;
+	ftd_reset = td_reset.FloatValue;
+	itd_ballposition = td_ballposition.IntValue;
+	btd_taser = td_taser.BoolValue;
+	btd_healthshot = td_healthshot.BoolValue;
+	
+	btd_stats_enabled = td_stats_enabled.BoolValue;
+	itd_stats_min = td_stats_min.IntValue;
+	btd_points_enabled = td_stats_enabled.BoolValue;
+	
+	itd_points_td = td_points_td.IntValue;
+	itd_points_kill = td_points_kill.IntValue;
+	itd_points_assist = td_points_assist.IntValue;
+	ftd_points_bonus = td_points_bonus.FloatValue;
+	itd_points_death = td_points_death.IntValue;
+	itd_points_dropball = td_points_dropball.IntValue;
+	itd_points_killball = td_points_killball.IntValue;
+	itd_points_pickball = td_points_pickball.IntValue;
+	itd_points_start = td_points_start.IntValue;
+	itd_points_min = td_points_min.IntValue;
+	btd_points_min_enabled = td_points_min_enabled.BoolValue;
 }
 
 void LoadMapConfig()
@@ -639,49 +645,45 @@ void LoadMapConfig()
 		SetFailState("Fatal error: Unable to open configuration file \"%s\"!", Configfile);
 	}
 	
-	Handle kv;
-	kv = CreateKeyValues("TouchDown");
+	KeyValues kv = CreateKeyValues("TouchDown");
+	kv.ImportFromFile(Configfile);
 	
 	char sMapName[128];
 	GetCurrentMap(sMapName, sizeof(sMapName));
 	
-	if (FileToKeyValues(kv, Configfile))
+	if (kv.JumpToKey(sMapName))
 	{
-		if (KvJumpToKey(kv, sMapName))
-		{
-			// Ball postion
-			char ball[512];
-			char ballDatas[3][32];
-			KvGetString(kv, "ball", ball, PLATFORM_MAX_PATH);
-			ExplodeString(ball, ";", ballDatas, 3, 32);
-			BallSpawnPoint[XPos] = StringToFloat(ballDatas[0]);
-			BallSpawnPoint[YPos] = StringToFloat(ballDatas[1]);
-			BallSpawnPoint[ZPos] = StringToFloat(ballDatas[2]);
+		// Ball postion
+		char ball[512];
+		char ballDatas[3][32];
+		kv.GetString("ball", ball, PLATFORM_MAX_PATH);
+		ExplodeString(ball, ";", ballDatas, 3, 32);
+		BallSpawnPoint[XPos] = StringToFloat(ballDatas[0]);
+		BallSpawnPoint[YPos] = StringToFloat(ballDatas[1]);
+		BallSpawnPoint[ZPos] = StringToFloat(ballDatas[2]);
 			
-			// T goal position
-			char tgoal[512];
-			char tgoalDatas[3][32];
-			KvGetString(kv, "goal_t", tgoal, PLATFORM_MAX_PATH);
-			ExplodeString(tgoal, ";", tgoalDatas, 3, 32);
-			TGoalSpawnPoint[XPos] = StringToFloat(tgoalDatas[0]);
-			TGoalSpawnPoint[YPos] = StringToFloat(tgoalDatas[1]);
-			TGoalSpawnPoint[ZPos] = StringToFloat(tgoalDatas[2]);
+		// T goal position
+		char tgoal[512];
+		char tgoalDatas[3][32];
+		kv.GetString("goal_t", tgoal, PLATFORM_MAX_PATH);
+		ExplodeString(tgoal, ";", tgoalDatas, 3, 32);
+		TGoalSpawnPoint[XPos] = StringToFloat(tgoalDatas[0]);
+		TGoalSpawnPoint[YPos] = StringToFloat(tgoalDatas[1]);
+		TGoalSpawnPoint[ZPos] = StringToFloat(tgoalDatas[2]);
 			
-			// CT goal position
-			char ctgoal[512];
-			char ctgoalDatas[3][32];
-			KvGetString(kv, "goal_ct", ctgoal, PLATFORM_MAX_PATH);
-			ExplodeString(ctgoal, ";", ctgoalDatas, 3, 32);
-			CTGoalSpawnPoint[XPos] = StringToFloat(ctgoalDatas[0]);
-			CTGoalSpawnPoint[YPos] = StringToFloat(ctgoalDatas[1]);
-			CTGoalSpawnPoint[ZPos] = StringToFloat(ctgoalDatas[2]);
-		}
-		else
-		{
-			SetFailState("Fatal error: Unable to find current map settings in configuration file \"%s\"!", Configfile);
-		}
+		// CT goal position
+		char ctgoal[512];
+		char ctgoalDatas[3][32];
+		kv.GetString("goal_ct", ctgoal, PLATFORM_MAX_PATH);
+		ExplodeString(ctgoal, ";", ctgoalDatas, 3, 32);
+		CTGoalSpawnPoint[XPos] = StringToFloat(ctgoalDatas[0]);
+		CTGoalSpawnPoint[YPos] = StringToFloat(ctgoalDatas[1]);
+		CTGoalSpawnPoint[ZPos] = StringToFloat(ctgoalDatas[2]);
 	}
-	CloseHandle(kv);
+	else SetFailState("Fatal error: Unable to find current map settings in configuration file \"%s\"!", Configfile);
+	
+	kv.Rewind();
+	delete kv;
 }
 
 public void OnMapStart() 
@@ -1059,36 +1061,28 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 	}
 	
 	// https://github.com/mukunda-/rxg-plugins/blob/fc533fcc9aeab3715b89d1a5c99905deb9a17865/gamefixes/restart_fix.sp
-	if(GetClientTeam(client) == TR)
-		g_spawned_t = true;
+	if(GetClientTeam(client) == TR)	g_spawned_t = true;
 	
-	if(GetClientTeam(client) == CT) 
-		g_spawned_ct = true;
+	if(GetClientTeam(client) == CT) g_spawned_ct = true;
 	
 	// both team have players
-	if(g_spawned_t && g_spawned_ct && !bWarmUp) 
-		ServerCommand("mp_ignore_round_win_conditions 1");
+	if(g_spawned_t && g_spawned_ct && !bWarmUp) ServerCommand("mp_ignore_round_win_conditions 1");
 }
 
 // Weapons
 // Edited from boomix's capture the flag, add translations and some improvement.
 public Action ShowWeaponMenu(Handle tmr, any client)
 {
-	if (!IsValidClient(client) || IsFakeClient(client))
-	{
-		return;
-	}
+	if (!IsValidClient(client) || IsFakeClient(client))	return;
 	
 	// New weapon
 	if (!b_AutoGiveWeapons[client] && b_SelectedWeapon[client])
 	{
 		RemoveAllWeapons(client, false);
 		
-		if(btd_taser)
-			GivePlayerItem(client, "weapon_taser");
+		if(btd_taser)	GivePlayerItem(client, "weapon_taser");
 		
-		if(btd_healthshot)
-			GivePlayerItem(client, "weapon_healthshot");
+		if(btd_healthshot)	GivePlayerItem(client, "weapon_healthshot");
 			
 		GivePlayerItem(client, g_LastPrimaryWeapon[client]);
 		GivePlayerItem(client, g_LastSecondaryWeapon[client]);
@@ -1099,18 +1093,13 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 	{
 		RemoveAllWeapons(client, false);
 		
-		if(btd_taser)
-			GivePlayerItem(client, "weapon_taser");
+		if(btd_taser)	GivePlayerItem(client, "weapon_taser");
 		
-		if(btd_healthshot)
-			GivePlayerItem(client, "weapon_healthshot");
+		if(btd_healthshot)	GivePlayerItem(client, "weapon_healthshot");
 		
 		// Always random
-		if(i_RandomWeapons[client] == 2)
-		{
-			GiveRandomWeapon(client);
-		}
-		
+		if(i_RandomWeapons[client] == 2)	GiveRandomWeapon(client);
+
 		// Random this time
 		else if(i_RandomWeapons[client] == 1)
 		{
@@ -1133,11 +1122,9 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 	{
 		RemoveAllWeapons(client, false);
 		
-		if(btd_taser)
-			GivePlayerItem(client, "weapon_taser");
+		if(btd_taser)	GivePlayerItem(client, "weapon_taser");
 		
-		if(btd_healthshot)
-			GivePlayerItem(client, "weapon_healthshot");
+		if(btd_healthshot)	GivePlayerItem(client, "weapon_healthshot");
 			
 		ShowMainMenu(client);
 	}
@@ -1152,7 +1139,7 @@ void ShowMainMenu(int client)
 	
 	char newweapons[512];
 	Format(newweapons, sizeof(newweapons), "%T", "New Weapons", client);
-	menu.AddItem("new", 			newweapons);
+	menu.AddItem("new", newweapons);
 	
 	char lastweapons[512];
 	Format(lastweapons, sizeof(lastweapons), "%T", "Last Weapons", client);
@@ -1162,22 +1149,24 @@ void ShowMainMenu(int client)
 	
 	if(StrContains(g_LastPrimaryWeapon[client], "weapon_") != -1 && StrContains(g_LastSecondaryWeapon[client], "weapon_") != -1 )
 	{
-		menu.AddItem("last", 			lastweapons);
-		menu.AddItem("lastf", 			lastweapons2);
-	} else {
+		menu.AddItem("last", lastweapons);
+		menu.AddItem("lastf", lastweapons2);
+	} 
+	else 
+	{
 		menu.AddItem("", lastweapons, ITEMDRAW_DISABLED);
 		menu.AddItem("", lastweapons2, ITEMDRAW_DISABLED);
 	}
 	
 	char randomweapons[512];
 	Format(randomweapons, sizeof(randomweapons), "%T", "Random Weapons", client);
-	menu.AddItem("random", 			randomweapons);
+	menu.AddItem("random", randomweapons);
 	
 	char randomweapons2[512];
 	Format(randomweapons2, sizeof(randomweapons2), "%T", "Random Weapons All The Time", client);
-	menu.AddItem("random2", 			randomweapons2);
+	menu.AddItem("random2", randomweapons2);
 	
-	SetMenuExitButton(menu, true);
+	menu.ExitButton = true;
 	menu.Display(client, 0);
 }
 
@@ -1188,7 +1177,7 @@ public int MenuHandlers_MainMenu(Menu menu, MenuAction action, int client, int i
 		case MenuAction_Select:
 		{
 			char info[32];
-			GetMenuItem(menu, item, info, sizeof(info));
+			menu.GetItem(item, info, sizeof(info));
 
 			if(StrEqual(info, "new"))
 			{
@@ -1236,7 +1225,6 @@ public int MenuHandlers_MainMenu(Menu menu, MenuAction action, int client, int i
 				
 				return;
 			}
-
 		}
 	}
 }
@@ -1266,8 +1254,8 @@ void ShowPrimaryWeaponMenu(int client)
 	menu.AddItem("weapon_mp7", "MP7");
 	menu.AddItem("weapon_ump45", "UMP45");
 	menu.AddItem("weapon_p90", "P90");
-	
-	SetMenuExitButton(menu, false);
+
+	menu.ExitButton = false;
 	menu.Display(client, 0);
 }
 
@@ -1298,7 +1286,7 @@ public int MenuHandlers_PrimaryWeapon(Menu menu, MenuAction action, int client, 
 			menu2.AddItem("weapon_usp_silencer", 	"USP-S");
 			menu2.AddItem("weapon_p250", 		"P250");
 			menu2.AddItem("weapon_tec9", 		"TEC-9");
-			SetMenuExitButton(menu2, false);
+			menu2.ExitButton =  false;
 			menu2.Display(client, 0);
 		}
 	}
@@ -1311,9 +1299,9 @@ public int MenuHandlers_SecondaryWeapon(Menu menu2, MenuAction action, int clien
 		case MenuAction_Select:
 		{
 			char info[32];
-			GetMenuItem(menu2, item, info, sizeof(info));
-			if(!HasWeapon(client, true) && IsPlayerAlive(client))
-				GivePlayerItem(client, info);
+			menu2.GetItem(item, info, sizeof(info));
+			
+			if(!HasWeapon(client, true) && IsPlayerAlive(client))	GivePlayerItem(client, info);
 			
 			g_LastSecondaryWeapon[client] = info;
 			
@@ -1325,32 +1313,35 @@ public int MenuHandlers_SecondaryWeapon(Menu menu2, MenuAction action, int clien
 public void RemoveAllWeapons(int client, bool RemoveKnife)
 {
 	//Primary weapon check
-	if(!IsClientInGame(client))
-		return;
+	if(!IsValidClient(client))	return;
 		
 	int weapon = GetPlayerWeaponSlot(client, CS_SLOT_PRIMARY);
-	if(weapon > 0) {
+	if(weapon > 0) 
+	{
 		RemovePlayerItem(client, weapon);
 		RemoveEdict(weapon);
 	}
 	
 	//Secondary
 	int weapon2 = GetPlayerWeaponSlot(client, CS_SLOT_SECONDARY);
-	if(weapon2 > 0) {
+	if(weapon2 > 0) 
+	{
 		RemovePlayerItem(client, weapon2);
 		RemoveEdict(weapon2);
 	}
 	
 	//Grenade
 	int weapon3 = GetPlayerWeaponSlot(client, CS_SLOT_GRENADE);
-	if(weapon3 > 0) {
+	if(weapon3 > 0) 
+	{
 		RemovePlayerItem(client, weapon3);
 		RemoveEdict(weapon3);
 	}
 	
 	//Grenade
 	int weapon4 = GetPlayerWeaponSlot(client, CS_SLOT_GRENADE);
-	if(weapon4 > 0) {
+	if(weapon4 > 0) 
+	{
 		RemovePlayerItem(client, weapon4);
 		RemoveEdict(weapon4);
 	}
@@ -1358,12 +1349,12 @@ public void RemoveAllWeapons(int client, bool RemoveKnife)
 	if(RemoveKnife)
 	{
 		int weapon5 = GetPlayerWeaponSlot(client, CS_SLOT_KNIFE);
-		if(weapon5 > 0) {
+		if(weapon5 > 0) 
+		{
 			RemovePlayerItem(client, weapon5);
 			RemoveEdict(weapon5);
 		}	
 	}
-	
 }
 
 bool HasWeapon(int client, bool Secondary = false)
@@ -1371,21 +1362,16 @@ bool HasWeapon(int client, bool Secondary = false)
 	if(Secondary)
 	{
 		int weapon2 = GetPlayerWeaponSlot(client, CS_SLOT_SECONDARY);
-		if(weapon2 > 0)
-			return true;
-		else
-			return false;
+		if(weapon2 > 0)	return true;
+		else	return false;
 	} 
 	else 
 	{
 		int weapon = GetPlayerWeaponSlot(client, CS_SLOT_PRIMARY);
 		int weapon2 = GetPlayerWeaponSlot(client, CS_SLOT_SECONDARY);
-		if(weapon > 0 || weapon2 > 0)
-			return true;
-		else
-			return false;
+		if(weapon > 0 || weapon2 > 0)	return true;
+		else	return false;
 	}
-
 }
 
 void GiveRandomWeapon(int client)
@@ -1444,16 +1430,14 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	ResetTimer();
 	
 	// Play Round Start Sound
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
 			CreateTimer(1.0, StartGameTimer);
 			
 			// Unfreeze players
-			if (GetClientTeam(i) == CT || GetClientTeam(i) == TR) 
-				SetEntityMoveType(i, MOVETYPE_WALK);
+			if (GetClientTeam(i) == CT || GetClientTeam(i) == TR) SetEntityMoveType(i, MOVETYPE_WALK);
 			
 			switch(GetRandomInt(1, 2))
 			{
@@ -1482,99 +1466,13 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 
 public Action PlayBGMTimer(Handle tmr, any client)
 {
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if(IsValidClient(i) && !IsFakeClient(i))
 		{
 			StopBGM(i);
 			
-			switch(GetRandomInt(1, 14))
-			{
-				// Chain Reaction
-				case 1:
-				{
-					BGM = 1;
-				}
-				
-				// Supersonic
-				case 2:
-				{
-					BGM = 2;
-				}
-				
-				// Nova
-				case 3:
-				{
-					BGM = 3;
-				}
-				
-				// Lobby
-				case 4:
-				{
-					BGM = 4;
-				}
-				
-				// Dual Rock
-				case 5:
-				{
-					BGM = 5;
-				}
-				
-				// Move_Your_Spirit
-				case 6:
-				{
-					BGM = 6;
-				}
-				
-				// Fuzzy Control
-				case 7:
-				{
-					BGM = 7;
-				}
-				
-				// Seize
-				case 8:
-				{
-					BGM = 8;
-				}
-				
-				// Syriana
-				case 9:
-				{
-					BGM = 9;
-				}
-				
-				// Access
-				case 10:
-				{
-					BGM = 10;
-				}
-				
-				// Grave_Consequence
-				case 11:
-				{
-					BGM = 11;
-				}
-				
-				// Come On
-				case 12:
-				{
-					BGM = 12;
-				}
-				
-				// Starfish
-				case 13:
-				{
-					BGM = 13;
-				}
-				
-				// NB Power
-				case 14:
-				{
-					BGM = 14;
-				}
-			}
+			BGM = GetRandomInt(1, 14)
 			
 			hBGMTimer[i] = CreateTimer(0.5, BGMTimer, i);
 		}
@@ -1603,91 +1501,91 @@ public Action BGMTimer(Handle tmr, any client)
 			hBGMTimer[client] = CreateTimer(195.0, BGMTimer, client);
 		}
 		
-		if(BGM == 2)
+		else if(BGM == 2)
 		{
 			CPrintToChat(client, "%T", "BGM 2", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Super_Sonic.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(195.0, BGMTimer, client);
 		}
 	
-		if(BGM == 3)	
+		else if(BGM == 3)	
 		{
 			CPrintToChat(client, "%T", "BGM 3", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Nova.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(123.0, BGMTimer, client);
 		}
 		
-		if(BGM == 4)	
+		else if(BGM == 4)	
 		{
 			CPrintToChat(client, "%T", "BGM 4", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Lobby.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(132.0, BGMTimer, client);
 		}
 		
-		if(BGM == 5)	
+		else if(BGM == 5)	
 		{
 			CPrintToChat(client, "%T", "BGM 5", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Dual_Rock.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(163.0, BGMTimer, client);
 		}
 		
-		if(BGM == 6)	
+		else if(BGM == 6)	
 		{
 			CPrintToChat(client, "%T", "BGM 6", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Move_Your_Spirit.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(230.0, BGMTimer, client);
 		}
 		
-		if(BGM == 7)	
+		else if(BGM == 7)	
 		{
 			CPrintToChat(client, "%T", "BGM 7", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Fuzzy_Control.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(159.0, BGMTimer, client);
 		}
 		
-		if(BGM == 8)	
+		else if(BGM == 8)	
 		{
 			CPrintToChat(client, "%T", "BGM 8", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Seize.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(122.0, BGMTimer, client);
 		}
 		
-		if(BGM == 9)	
+		else if(BGM == 9)	
 		{
 			CPrintToChat(client, "%T", "BGM 9", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Syriana.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(92.0, BGMTimer, client);
 		}
 		
-		if(BGM == 10)	
+		else if(BGM == 10)	
 		{
 			CPrintToChat(client, "%T", "BGM 10", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Access.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(145.0, BGMTimer, client);
 		}
 		
-		if(BGM == 11)	
+		else if(BGM == 11)	
 		{
 			CPrintToChat(client, "%T", "BGM 11", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Grave_Consequence.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(99.0, BGMTimer, client);
 		}
 		
-		if(BGM == 12)	
+		else if(BGM == 12)	
 		{
 			CPrintToChat(client, "%T", "BGM 12", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Come_On.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(180.0, BGMTimer, client);
 		}
 		
-		if(BGM == 13)	
+		else if(BGM == 13)	
 		{
 			CPrintToChat(client, "%T", "BGM 13", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/Starfish.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(135.0, BGMTimer, client);
 		}
 		
-		if(BGM == 14)	
+		else if(BGM == 14)	
 		{
 			CPrintToChat(client, "%T", "BGM 14", client);
 			EmitSoundToClient(client, "*/touchdown/bgm/NB_Power.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
@@ -1703,67 +1601,67 @@ void StopBGM(int client)
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Chain_Reaction.mp3");
 	}
 		
-	if(BGM == 2)
+	else if(BGM == 2)
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Super_Sonic.mp3");
 	}
 	
-	if(BGM == 3)	
+	else if(BGM == 3)	
 	{
 		StopSound(client, SNDCHAN_STATIC,  "*/touchdown/bgm/Nova.mp3");
 	}
 	
-	if(BGM == 4)	
+	else if(BGM == 4)	
 	{
 		StopSound(client, SNDCHAN_STATIC,  "*/touchdown/bgm/Lobby.mp3");
 	}
 		
-	if(BGM == 5)	
+	else if(BGM == 5)	
 	{
 		StopSound(client, SNDCHAN_STATIC,  "*/touchdown/bgm/Dual_Rock.mp3");
 	}
 	
-	if(BGM == 6)	
+	else if(BGM == 6)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Move_Your_Spirit.mp3");
 	}
 		
-	if(BGM == 7)	
+	else if(BGM == 7)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Fuzzy_Control.mp3");	
 	}
 	
-	if(BGM == 8)	
+	else if(BGM == 8)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Seize.mp3");	
 	}
 	
-	if(BGM == 9)	
+	else if(BGM == 9)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Syriana.mp3");	
 	}
 	
-	if(BGM == 10)	
+	else if(BGM == 10)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Access.mp3");	
 	}
 	
-	if(BGM == 11)	
+	else if(BGM == 11)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Grave_Consequence.mp3");	
 	}
 	
-	if(BGM == 12)	
+	else if(BGM == 12)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Come_On.mp3");	
 	}
 	
-	if(BGM == 13)	
+	else if(BGM == 13)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Starfish.mp3");	
 	}
 	
-	if(BGM == 14)	
+	else if(BGM == 14)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/NB_Power.mp3");	
 	}
@@ -1779,7 +1677,14 @@ public void OnClientPutInServer(int client)
 		hBGMTimer[client] = CreateTimer(2.0, BGMTimer, client);
 	}
 	
-	// Cookie
+	OnClientCookiesCached(client);
+	
+	SDKHook(client, SDKHook_WeaponCanUse, OnWeaponCanUse);
+	SDKHook(client, SDKHook_WeaponDrop, OnWeaponDrop);
+}
+
+public void OnClientCookiesCached(int client)
+{
 	char buffer[5];
 	GetClientCookie(client, clientVolCookie, buffer, 5);
 	if(!StrEqual(buffer, ""))
@@ -1790,10 +1695,7 @@ public void OnClientPutInServer(int client)
 		g_fvol[client] = 0.8;
 	}
 	
-	LoadClientStats(client);
-	
-	SDKHook(client, SDKHook_WeaponCanUse, OnWeaponCanUse);
-	SDKHook(client, SDKHook_WeaponDrop, OnWeaponDrop);
+	if(btd_stats_enabled || btd_points_enabled)	LoadClientStats(client);
 }
 
 public Action RoundCountdown(Handle tmr)
@@ -1804,8 +1706,7 @@ public Action RoundCountdown(Handle tmr)
     
 	if (roundtime == 180)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1819,8 +1720,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 60)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1834,8 +1734,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 30)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1849,8 +1748,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 10)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1864,8 +1762,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 9)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1879,8 +1776,7 @@ public Action RoundCountdown(Handle tmr)
 
 	else if (roundtime == 8)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1894,8 +1790,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 7)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1909,8 +1804,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 6)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1924,8 +1818,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 5)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1939,8 +1832,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 4)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1954,8 +1846,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 3)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1969,8 +1860,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 2)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -1984,8 +1874,7 @@ public Action RoundCountdown(Handle tmr)
 	
 	else if (roundtime == 1)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2027,8 +1916,7 @@ void ResetTimer()
 		hResetBallTimer = INVALID_HANDLE;
 	}
 	
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
@@ -2081,8 +1969,7 @@ public Action NextRoundCountdown(Handle tmr)
 	
 	if (Nextroundtime == 6)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2114,8 +2001,7 @@ public Action NextRoundCountdown(Handle tmr)
 	
 	else if (Nextroundtime == 5)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2127,8 +2013,7 @@ public Action NextRoundCountdown(Handle tmr)
 	
 	else if (Nextroundtime == 4)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2140,8 +2025,7 @@ public Action NextRoundCountdown(Handle tmr)
 	
 	else if (Nextroundtime == 3)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2153,8 +2037,7 @@ public Action NextRoundCountdown(Handle tmr)
 	
 	else if (Nextroundtime == 2)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2166,8 +2049,7 @@ public Action NextRoundCountdown(Handle tmr)
 	
 	else if (Nextroundtime == 1)
 	{
-		int i;
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2304,8 +2186,6 @@ public void OnStartTouch(int ent, int client)
 	char Item[255];
 	GetEntPropString(ent, Prop_Data, "m_iName", Item, sizeof(Item));
 	
-	int i;
-	
 	// Someone get the ball
 	if (StrEqual(Item, "TDBall"))
 	{
@@ -2326,7 +2206,7 @@ public void OnStartTouch(int ent, int client)
 		}
 		
 		// Play Sound
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -2385,7 +2265,7 @@ public void OnStartTouch(int ent, int client)
 						}
 					}
 					// CT play defence sound
-					if(GetClientTeam(i) == CT)
+					else if(GetClientTeam(i) == CT)
 					{
 						hRAcquiredBallText[i] = CreateTimer(0.1, RAcquiredBallText, i, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 					
@@ -2410,7 +2290,7 @@ public void OnStartTouch(int ent, int client)
 					}
 				}
 				// CT get the ball
-				if(GetClientTeam(client) == CT)
+				else if(GetClientTeam(client) == CT)
 				{
 					CPrintToChat(i, "%T", "Get Ball CT", i, client);
 					
@@ -2464,7 +2344,7 @@ public void OnStartTouch(int ent, int client)
 						}
 					}
 					// TR play defence sound
-					if(GetClientTeam(i) == TR)
+					else if(GetClientTeam(i) == TR)
 					{
 						hRAcquiredBallText[i] = CreateTimer(0.1, RAcquiredBallText, i, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 					
@@ -2493,7 +2373,7 @@ public void OnStartTouch(int ent, int client)
 	}
 		
 	// Someone Go to CT Goal
-	if (StrEqual(Item, "CTGoalPole"))
+	else if (StrEqual(Item, "CTGoalPole"))
 	{
 		// And he is T and he has a ball.
 		if(GetClientTeam(client) == TR && BallHolder == client && IsValidEntity(client))
@@ -2512,7 +2392,7 @@ public void OnStartTouch(int ent, int client)
 			CreateCTGoalParticle();
 			
 			// Announce touchdown
-			for (i = 1; i <= MaxClients; i++)
+			for (int i = 1; i <= MaxClients; i++)
 			{
 				if (IsValidClient(i) && !IsFakeClient(i)) 
 				{
@@ -2523,7 +2403,7 @@ public void OnStartTouch(int ent, int client)
 	}
 	
 	// Someone Go to T Goal
-	if (StrEqual(Item, "TGoalPole"))
+	else if (StrEqual(Item, "TGoalPole"))
 	{
 		// And he is CT and he has a ball.
 		if(GetClientTeam(client) == CT && BallHolder == client && IsValidEntity(client))
@@ -2542,7 +2422,7 @@ public void OnStartTouch(int ent, int client)
 			CreateTGoalParticle();
 			
 			// Announce touchdown
-			for (i = 1; i <= MaxClients; i++)
+			for (int i = 1; i <= MaxClients; i++)
 			{
 				if (IsValidClient(i) && !IsFakeClient(i)) 
 				{
@@ -2674,9 +2554,8 @@ void GetBall(int client)
 		m_fOffset[1] = 18.5;
 		m_fOffset[2] = 15.0;
 	}
-	
 	// Head
-	if(itd_ballposition == 1)
+	else if(itd_ballposition == 1)
 	{
 		m_fOffset[0] = 0.0;
 		m_fOffset[1] = 0.0;
@@ -2728,7 +2607,7 @@ void GetBall(int client)
 		SDKHookEx(TParticle, SDKHook_SetTransmit, Hook_SetTransmit);
 	}
 	
-	if(GetClientTeam(client) == CT)
+	else if(GetClientTeam(client) == CT)
 	{
 		CTParticle = CreateEntityByName("info_particle_system");
 	
@@ -2757,9 +2636,8 @@ void GetBall(int client)
 		KillTimer(hResetBallTimer);
 		hResetBallTimer = INVALID_HANDLE;
 	}
-	
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
@@ -2928,15 +2806,14 @@ void DropBall(int client)
 	hResetBallTimer = CreateTimer(ftd_reset, ResetBallTimer, client);
 	
 	// Play attack defence sound to other player
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && GetClientTeam(i) != SPEC)
 		{
 			if(GetClientTeam(client) == TR)
 				CPrintToChat(i, "%T", "Drop Ball T", i, client);
 				
-			if(GetClientTeam(client) == CT)
+			else if(GetClientTeam(client) == CT)
 				CPrintToChat(i, "%T", "Drop Ball CT", i, client);
 			
 			// Nice Chance!
@@ -2959,7 +2836,7 @@ void DropBall(int client)
 			}
 				
 			// Lost the ball!
-			if(GetClientTeam(i) == GetClientTeam(client))
+			else if(GetClientTeam(i) == GetClientTeam(client))
 			{
 				hDropBallText[i] = CreateTimer(0.1, DropBallText, i, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 				
@@ -3042,8 +2919,7 @@ void GoalBall(int client)
 	BallDroperTeam = 0;
 	Touchdowner = client;
 	
-	int i;
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
@@ -3110,7 +2986,6 @@ public Action JustEndedFalse(Handle tmr, any client)
 
 public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
-	int i;
 	int Winner = GetEventInt(event, "winner");
 	
 	if(hRoundCountdown != INVALID_HANDLE)
@@ -3119,7 +2994,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	}
 	hRoundCountdown = INVALID_HANDLE;
 	
-	for (i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
@@ -3147,7 +3022,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 			}
 			hRDropBallText[i] = INVALID_HANDLE;
 			
-			SaveClientStats(i);
+			if(btd_stats_enabled || btd_points_enabled)	SaveClientStats(i);
 		}
 	}
 	
@@ -3158,7 +3033,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	// play timeover sound
 	if(StrEqual(sMessage,"#SFUI_Notice_Round_Draw", false))
 	{
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -3167,15 +3042,14 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				EmitSoundToClient(i, "*/touchdown/inter_timeover.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
 				
 				// Freeze player if time is up
-				if(GetClientTeam(i) != SPEC)
-					SetEntityMoveType(i, MOVETYPE_NONE);
+				if(GetClientTeam(i) != SPEC)	SetEntityMoveType(i, MOVETYPE_NONE);
 			}
 		}
 	}
 	// Round NOT draw
 	else
 	{
-		for (i = 1; i <= MaxClients; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
@@ -3184,7 +3058,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 					continue;
 				
 				// TR win this round, play sound & overlay to TR
-				if (Winner == TR && GetClientTeam(i) == TR)
+				else if (Winner == TR && GetClientTeam(i) == TR)
 				{
 					SetClientOverlay(i, "touchdown/touchdown_green");
 					
@@ -3241,7 +3115,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				}
 				
 				// TR win this round, play sound & overlay to CT
-				if (Winner == TR && GetClientTeam(i) == CT) 
+				else if (Winner == TR && GetClientTeam(i) == CT) 
 				{
 					SetClientOverlay(i, "touchdown/touchdown_red");
 					
@@ -3273,7 +3147,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				}
 				
 				// CT win this round, play sound & overlay to CT
-				if (Winner == CT && GetClientTeam(i) == CT) 
+				else if (Winner == CT && GetClientTeam(i) == CT) 
 				{
 					SetClientOverlay(i, "touchdown/touchdown_green");
 					
@@ -3328,7 +3202,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				}
 				
 				// CT win this round, play sound & overlay to TR
-				if (Winner == CT && GetClientTeam(i) == TR) 
+				else if (Winner == CT && GetClientTeam(i) == TR) 
 				{
 					SetClientOverlay(i, "touchdown/touchdown_red");
 					
@@ -3497,7 +3371,6 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		// https://forums.alliedmods.net/showthread.php?t=71084
 		CreateTimer(0.2, Dissolve, client);
 	}
-	
 	
 	// someone have the ball
 	if (BallHolder != 0)
@@ -4108,7 +3981,7 @@ public void OnClientDisconnect(int client)
 		ServerCommand("mp_ignore_round_win_conditions 0");
 		
 	// save stats
-	SaveClientStats(client);
+	if(btd_stats_enabled || btd_points_enabled)	SaveClientStats(client);
 }
 
 public Action Command_Vol(int client,int args)
@@ -4481,11 +4354,10 @@ public Action Event_SoundPlayed(int clients[64], int &numClients, char sample[PL
 {
 	if(DropBallModel == entity && StrEqual(sample, "~)weapons/hegrenade/he_bounce-1.wav"))
 	{
-		int j;
-		for (j = 1; j <= MaxClients; j++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
-			if (IsValidClient(j) && !IsFakeClient(j))
-				EmitSoundToClient(j, "*/touchdown/pokeball_bounce.mp3", entity, SNDCHAN_STATIC, _, _, g_fvol[j]);
+			if (IsValidClient(i) && !IsFakeClient(i))
+				EmitSoundToClient(i, "*/touchdown/pokeball_bounce.mp3", entity, SNDCHAN_STATIC, _, _, g_fvol[i]);
 		}
 		
 		return Plugin_Handled;
@@ -4727,11 +4599,14 @@ public void SQL_SaveCallback(Database db, DBResultSet results, const char[] erro
 
 public void OnPluginEnd() 
 {
-	for (int i = 1; i <= MaxClients; i++)
+	if(btd_stats_enabled || btd_points_enabled)
 	{
-		if (IsValidClient(i) && !IsFakeClient(i)) 
+		for (int i = 1; i <= MaxClients; i++)
 		{
-			SaveClientStats(i);
+			if (IsValidClient(i) && !IsFakeClient(i)) 
+			{
+				SaveClientStats(i);
+			}
 		}
 	}
 }
@@ -4837,7 +4712,7 @@ public void SQL_StatsCallback(Database db, DBResultSet results, const char[] err
 	
 	char title[64];
 	Format(title, sizeof(title), "%T \n \n", "Touchdown Stats", client, client);
-	SetMenuTitle(statsmenu, title);
+	statsmenu.SetTitle(title);
 	
 	Format(temp, sizeof(temp), "%T \n", "Basic Stats", client);
 	StrCat(text, sizeof(text), temp);
@@ -4871,14 +4746,7 @@ public void SQL_StatsCallback(Database db, DBResultSet results, const char[] err
 
 public int StatsMenu_Handler(Menu menu, MenuAction action, int client,int param)
 {
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 public float IntToFloat(int integer)
@@ -4894,85 +4762,79 @@ public Action Command_Top(int client,int args)
 		return Plugin_Handled;
 	
 	// Create Menu
-	Menu topmenu = new Menu(TopMenu_Handler);
+	Menu TopMenu = new Menu(TopMenu_Handler);
 	
-	char topmenutitle[512];
-	Format(topmenutitle, sizeof(topmenutitle), "%T", "Top Menu Title", client);
-	topmenu.SetTitle(topmenutitle);
+	char TopMenutitle[512];
+	Format(TopMenutitle, sizeof(TopMenutitle), "%T", "Top Menu Title", client);
+	TopMenu.SetTitle(TopMenutitle);
 		
 	// Add No MVP
 	char points[512];
 	Format(points, sizeof(points), "%T", "Top 10 Points", client);
-	topmenu.AddItem("points", points);
+	TopMenu.AddItem("points", points);
 	
 	char td[512];
 	Format(td, sizeof(td), "%T", "Top 10 Touchdown", client);
-	topmenu.AddItem("touchdown", td);
+	TopMenu.AddItem("touchdown", td);
 	
 	char kills[512];
 	Format(kills, sizeof(kills), "%T", "Top 10 Kills", client);
-	topmenu.AddItem("kills", kills);
+	TopMenu.AddItem("kills", kills);
 	
 	char deaths[512];
 	Format(deaths, sizeof(deaths), "%T", "Top 10 Deaths", client);
-	topmenu.AddItem("deaths", deaths);
+	TopMenu.AddItem("deaths", deaths);
 	
 	char assists[512];
 	Format(assists, sizeof(assists), "%T", "Top 10 Assists", client);
-	topmenu.AddItem("assists", assists);
+	TopMenu.AddItem("assists", assists);
 	
 	char killball[512];
 	Format(killball, sizeof(killball), "%T", "Top 10 Killball", client);
-	topmenu.AddItem("killball", killball);
+	TopMenu.AddItem("killball", killball);
 	
 	char getball[512];
 	Format(getball, sizeof(getball), "%T", "Top 10 Getball", client);
-	topmenu.AddItem("getball", getball);
+	TopMenu.AddItem("getball", getball);
 	
 	char dropball[512];
 	Format(dropball, sizeof(dropball), "%T", "Top 10 Dropball", client);
-	topmenu.AddItem("dropball", dropball);
+	TopMenu.AddItem("dropball", dropball);
 
-	topmenu.Display(client, MENU_TIME_FOREVER);
+	TopMenu.Display(client, MENU_TIME_FOREVER);
 		
 	return Plugin_Handled;
 }
 
 public int TopMenu_Handler(Menu menu, MenuAction action, int client,int param)
 {
-	if(action == MenuAction_Select)
+	switch(action)
 	{
-		char menuitem[10];
-		GetMenuItem(menu, param, menuitem, sizeof(menuitem));
-		
-		if(StrEqual(menuitem, "points"))
-			ShowTopPoints(client);
-
-		else if(StrEqual(menuitem, "touchdown"))
-			ShowTopTouchdown(client);
+		case MenuAction_Select:
+		{
+			char menuitem[10];
+			menu.GetItem(param, menuitem, sizeof(menuitem));
 			
-		else if(StrEqual(menuitem, "kills"))
-			ShowTopKills(client);
-
-		else if(StrEqual(menuitem, "deaths"))
-			ShowTopDeaths(client);
-			
-		else if(StrEqual(menuitem, "assists"))
-			ShowTopAssists(client);
-			
-		else if(StrEqual(menuitem, "killball"))
-			ShowTopKillball(client);
-			
-		else if(StrEqual(menuitem, "getball"))
-			ShowTopGetball(client);
-			
-		else if(StrEqual(menuitem, "dropball"))
-			ShowTopDropball(client);
-	}
+			if(StrEqual(menuitem, "points"))	ShowTopPoints(client);
 	
-	if (action == MenuAction_End)
-	{
-		delete menu;
+			else if(StrEqual(menuitem, "touchdown"))	ShowTopTouchdown(client);
+				
+			else if(StrEqual(menuitem, "kills"))	ShowTopKills(client);
+	
+			else if(StrEqual(menuitem, "deaths"))	ShowTopDeaths(client);
+				
+			else if(StrEqual(menuitem, "assists"))	ShowTopAssists(client);
+				
+			else if(StrEqual(menuitem, "killball"))	ShowTopKillball(client);
+				
+			else if(StrEqual(menuitem, "getball"))	ShowTopGetball(client);
+				
+			else if(StrEqual(menuitem, "dropball"))	ShowTopDropball(client);
+		}
+		case MenuAction_End:
+		{
+			delete menu;
+		}
 	}
 }
 
@@ -4992,14 +4854,12 @@ public void SQL_TopPointsCallback(Database db, DBResultSet results, const char[]
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
-	Menu toppointsmenu = new Menu(TopPoints_MenuHandler);
-	toppointsmenu.SetTitle("");
+	Menu TopPointsmenu = new Menu(TopPoints_MenuHandler);
+	TopPointsmenu.SetTitle("");
 	
 	Format(temp, sizeof(temp), "%T \n \n", "Top Points Title", client);
 	StrCat(text, sizeof(text), temp);
@@ -5012,23 +4872,14 @@ public void SQL_TopPointsCallback(Database db, DBResultSet results, const char[]
 		StrCat(text, sizeof(text), temp);
 	}
 	
-	toppointsmenu.AddItem("", text);
-	
-	toppointsmenu.ExitButton = true;
-	
-	toppointsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
+	TopPointsmenu.AddItem("", text);
+	TopPointsmenu.ExitButton = true;
+	TopPointsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopPoints_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 void ShowTopTouchdown(int client)
@@ -5047,11 +4898,9 @@ public void SQL_TopTouchdownCallback(Database db, DBResultSet results, const cha
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
 	Menu TopTouchdownmenu = new Menu(TopTouchdown_MenuHandler);
 	TopTouchdownmenu.SetTitle("");
@@ -5068,22 +4917,13 @@ public void SQL_TopTouchdownCallback(Database db, DBResultSet results, const cha
 	}
 	
 	TopTouchdownmenu.AddItem("", text);
-	
 	TopTouchdownmenu.ExitButton = true;
-	
 	TopTouchdownmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopTouchdown_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 void ShowTopKills(int client)
@@ -5102,11 +4942,9 @@ public void SQL_TopKillsCallback(Database db, DBResultSet results, const char[] 
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
 	Menu TopKillsmenu = new Menu(TopKills_MenuHandler);
 	TopKillsmenu.SetTitle("");
@@ -5123,22 +4961,13 @@ public void SQL_TopKillsCallback(Database db, DBResultSet results, const char[] 
 	}
 	
 	TopKillsmenu.AddItem("", text);
-	
 	TopKillsmenu.ExitButton = true;
-	
 	TopKillsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopKills_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 void ShowTopDeaths(int client)
@@ -5157,11 +4986,9 @@ public void SQL_TopDeathsCallback(Database db, DBResultSet results, const char[]
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
 	Menu TopDeathsmenu = new Menu(TopDeaths_MenuHandler);
 	TopDeathsmenu.SetTitle("");
@@ -5178,22 +5005,13 @@ public void SQL_TopDeathsCallback(Database db, DBResultSet results, const char[]
 	}
 	
 	TopDeathsmenu.AddItem("", text);
-	
 	TopDeathsmenu.ExitButton = true;
-	
 	TopDeathsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopDeaths_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 void ShowTopAssists(int client)
@@ -5212,11 +5030,9 @@ public void SQL_TopAssistsCallback(Database db, DBResultSet results, const char[
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
 	Menu TopAssistsmenu = new Menu(TopAssists_MenuHandler);
 	TopAssistsmenu.SetTitle("");
@@ -5233,22 +5049,13 @@ public void SQL_TopAssistsCallback(Database db, DBResultSet results, const char[
 	}
 	
 	TopAssistsmenu.AddItem("", text);
-	
 	TopAssistsmenu.ExitButton = true;
-	
 	TopAssistsmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopAssists_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 void ShowTopKillball(int client)
@@ -5267,11 +5074,9 @@ public void SQL_TopKillballCallback(Database db, DBResultSet results, const char
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
 	Menu TopKillballmenu = new Menu(TopKillball_MenuHandler);
 	TopKillballmenu.SetTitle("");
@@ -5288,22 +5093,13 @@ public void SQL_TopKillballCallback(Database db, DBResultSet results, const char
 	}
 	
 	TopKillballmenu.AddItem("", text);
-	
 	TopKillballmenu.ExitButton = true;
-	
 	TopKillballmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopKillball_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 void ShowTopDropball(int client)
@@ -5322,11 +5118,9 @@ public void SQL_TopDropballCallback(Database db, DBResultSet results, const char
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
 	Menu TopDropballmenu = new Menu(TopDropball_MenuHandler);
 	TopDropballmenu.SetTitle("");
@@ -5343,22 +5137,13 @@ public void SQL_TopDropballCallback(Database db, DBResultSet results, const char
 	}
 	
 	TopDropballmenu.AddItem("", text);
-	
 	TopDropballmenu.ExitButton = true;
-	
 	TopDropballmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopDropball_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 void ShowTopGetball(int client)
@@ -5377,11 +5162,9 @@ public void SQL_TopGetballCallback(Database db, DBResultSet results, const char[
 		return;
 	}
 	
-	int client = GetClientOfUserId(data);
-	char name[255];
-	char temp[255];
-	char text[512];
 	int i;
+	int client = GetClientOfUserId(data);
+	char name[255], temp[255], text[512];
 	
 	Menu TopGetballmenu = new Menu(TopGetball_MenuHandler);
 	TopGetballmenu.SetTitle("");
@@ -5398,22 +5181,13 @@ public void SQL_TopGetballCallback(Database db, DBResultSet results, const char[
 	}
 	
 	TopGetballmenu.AddItem("", text);
-	
 	TopGetballmenu.ExitButton = true;
-	
 	TopGetballmenu.DisplayAt(client, 0, MENU_TIME_FOREVER);
 }
 
 public int TopGetball_MenuHandler(Menu menu, MenuAction action, int client,int param)
 {	
-	if (action == MenuAction_End)
-	{
-		delete menu;
-	}
-	if (action == MenuAction_Select)
-	{
-		delete menu;
-	}
+	if (action == MenuAction_End || action == MenuAction_Select)	delete menu;
 }
 
 // Dissolve
@@ -5423,17 +5197,13 @@ public Action Dissolve(Handle timer, any client)
 	if (!IsValidEntity(client))	return;
     
 	int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
-	if (ragdoll<0)
-	{
-		LogError("Could not get ragdoll for player!");  
-		return;
-	}
+	if (ragdoll < 0)	return;
     
 	char dname[32];
 	Format(dname, sizeof(dname), "dis_%d", client);
   
 	int ent = CreateEntityByName("env_entity_dissolver");
-	if (ent>0)
+	if (ent > 0)
 	{
 		DispatchKeyValue(ragdoll, "targetname", dname);
 		DispatchKeyValue(ent, "dissolvetype", "2");
