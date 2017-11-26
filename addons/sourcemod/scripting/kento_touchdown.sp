@@ -54,6 +54,11 @@
 // Optimize
 // Fix some bug.
 //
+// 2.7
+// Optimize
+// Fix workshop map name.
+// Now spec can hear kill, death, attack, defence, respawn and match end sounds
+//
 // Maybe we can add
 // Jump Sound? jump_up.mp3
 // Critical sound
@@ -266,7 +271,6 @@ Handle clientVolCookie;
 float g_fvol[MAXPLAYERS+1];
 
 // Cvar
-ConVar mp_restartgame;
 ConVar td_respawn;
 ConVar td_reset;
 ConVar td_ballposition;
@@ -313,6 +317,20 @@ int itd_points_pickball;
 int itd_points_start;
 int itd_points_min;
 bool btd_points_min_enabled;
+
+ConVar mp_freezetime;
+ConVar mp_weapons_allow_map_placed;
+ConVar mp_death_drop_gun;
+ConVar mp_playercashawards;
+ConVar mp_teamcashawards;
+ConVar mp_free_armor;
+ConVar bot_quota;
+ConVar mp_match_restart_delay;
+ConVar mp_win_panel_display_time;
+ConVar mp_restartgame;
+
+ConVar mp_ignore_round_win_conditions;
+int i_mp_ignore_round_win_conditions;
 
 // Timer
 Handle hDropBallText[MAXPLAYERS + 1] = INVALID_HANDLE;
@@ -379,7 +397,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento from Akami Studio",
-	version = "2.6",
+	version = "2.7",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -421,9 +439,6 @@ public void OnPluginStart()
 	
 	HookUserMessage(GetUserMessageId("TextMsg"), MsgHook_AdjustMoney, true);
 	
-	mp_restartgame = FindConVar("mp_restartgame");
-	mp_restartgame.AddChangeHook(Restart_Handler);
-	
 	// Cvar
 	td_respawn = CreateConVar("sm_touchdown_respawn",  "8.0", "Respawn Time.", FCVAR_NOTIFY, true, 0.0);
 	td_reset = CreateConVar("sm_touchdown_reset",  "15.0", "How long to reset the ball if nobody takes the ball after ball drop.", FCVAR_NOTIFY, true, 0.0);
@@ -435,10 +450,10 @@ public void OnPluginStart()
 	td_stats_enabled = CreateConVar("sm_touchdown_stats_enabled",  "0", "Enable stats or not? (MYSQL only!)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	td_stats_min = CreateConVar("sm_touchdown_stats_min",  "4", "Min player to count stats.", FCVAR_NOTIFY, true, 0.0);
 	td_stats_table_name = CreateConVar("sm_touchdown_stats_table",  "touchdown", "MySQL table name for touchdown.");
-	td_points_enabled = CreateConVar("sm_touchdown_points_enabled",  "0", "Enable points or not?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	
 	// Points cvar
 	// http://s4league.wikia.com/wiki/Touchdown#Scoring
+	td_points_enabled = CreateConVar("sm_touchdown_points_enabled",  "0", "Enable points or not?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	td_points_td = CreateConVar("sm_touchdown_points_td",  "10", "How many points player can get when he touchdown?", FCVAR_NOTIFY, true, 0.0);
 	td_points_kill = CreateConVar("sm_touchdown_points_kill",  "2", "How many points player will get when he kill?", FCVAR_NOTIFY, true, 0.0);
 	td_points_assist = CreateConVar("sm_touchdown_points_assist",  "1", "How many points player can get when he assist kill?", FCVAR_NOTIFY, true, 0.0);
@@ -451,6 +466,21 @@ public void OnPluginStart()
 	td_points_min_enabled = CreateConVar("sm_touchdown_points_min_enabled",  "1", "Enable minimum points?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	td_points_min = CreateConVar("sm_touchdown_points_min",  "0", "Minimum points", FCVAR_NOTIFY, true, 0.0);
 	
+	// Server Cvar
+	// Remove freezetime, S4 doesn't have freeze time
+	mp_freezetime = FindConVar("mp_freezetime");
+	mp_weapons_allow_map_placed = FindConVar("mp_weapons_allow_map_placed");
+	mp_death_drop_gun = FindConVar("mp_death_drop_gun");
+	mp_playercashawards = FindConVar("mp_playercashawards");
+	mp_teamcashawards = FindConVar("mp_teamcashawards");
+	mp_free_armor = FindConVar("mp_free_armor");
+	bot_quota = FindConVar("bot_quota");
+	mp_match_restart_delay = FindConVar("mp_match_restart_delay");
+	mp_win_panel_display_time = FindConVar("mp_win_panel_display_time");
+	mp_restartgame = FindConVar("mp_restartgame");
+	mp_ignore_round_win_conditions = FindConVar("mp_ignore_round_win_conditions");
+	
+	// Hook Cvar Change
 	td_respawn.AddChangeHook(OnConVarChanged);
 	td_reset.AddChangeHook(OnConVarChanged);
 	td_ballposition.AddChangeHook(OnConVarChanged);
@@ -459,8 +489,9 @@ public void OnPluginStart()
 	
 	td_stats_enabled.AddChangeHook(OnConVarChanged);
 	td_stats_min.AddChangeHook(OnConVarChanged);
-	td_points_enabled.AddChangeHook(OnConVarChanged);
+	td_stats_table_name.GetString(std_stats_table_name, sizeof(std_stats_table_name));
 	
+	td_points_enabled.AddChangeHook(OnConVarChanged);
 	td_points_td.AddChangeHook(OnConVarChanged);
 	td_points_kill.AddChangeHook(OnConVarChanged);
 	td_points_assist.AddChangeHook(OnConVarChanged);
@@ -473,7 +504,18 @@ public void OnPluginStart()
 	td_points_min.AddChangeHook(OnConVarChanged);
 	td_points_min_enabled.AddChangeHook(OnConVarChanged);
 	
-	td_stats_table_name.GetString(std_stats_table_name, sizeof(std_stats_table_name));
+	mp_freezetime.AddChangeHook(OnConVarChanged);
+	mp_weapons_allow_map_placed.AddChangeHook(OnConVarChanged);
+	mp_death_drop_gun.AddChangeHook(OnConVarChanged);
+	mp_playercashawards.AddChangeHook(OnConVarChanged);
+	mp_teamcashawards.AddChangeHook(OnConVarChanged);
+	mp_free_armor.AddChangeHook(OnConVarChanged);
+	bot_quota.AddChangeHook(OnConVarChanged);
+	mp_match_restart_delay.AddChangeHook(OnConVarChanged);
+	mp_win_panel_display_time.AddChangeHook(OnConVarChanged);
+	mp_ignore_round_win_conditions.AddChangeHook(OnConVarChanged);
+	
+	mp_restartgame.AddChangeHook(Restart_Handler);
 	
 	AutoExecConfig(true, "kento_touchdown");
 	
@@ -648,15 +690,25 @@ void LoadMapConfig()
 	KeyValues kv = CreateKeyValues("TouchDown");
 	kv.ImportFromFile(Configfile);
 	
-	char sMapName[128];
+	char sMapName[128], sMapName2[128];
 	GetCurrentMap(sMapName, sizeof(sMapName));
 	
-	if (kv.JumpToKey(sMapName))
+	// Does current map string contains a "workshop" prefix at a start?
+	if (strncmp(sMapName, "workshop", 8) == 0)
+	{
+		Format(sMapName2, sizeof(sMapName2), sMapName[19]);
+	}
+	else
+	{
+		Format(sMapName2, sizeof(sMapName2), sMapName);
+	}
+	
+	if (kv.JumpToKey(sMapName2))
 	{
 		// Ball postion
 		char ball[512];
 		char ballDatas[3][32];
-		kv.GetString("ball", ball, PLATFORM_MAX_PATH);
+		kv.GetString("ball", ball, sizeof(ball));
 		ExplodeString(ball, ";", ballDatas, 3, 32);
 		BallSpawnPoint[XPos] = StringToFloat(ballDatas[0]);
 		BallSpawnPoint[YPos] = StringToFloat(ballDatas[1]);
@@ -665,7 +717,7 @@ void LoadMapConfig()
 		// T goal position
 		char tgoal[512];
 		char tgoalDatas[3][32];
-		kv.GetString("goal_t", tgoal, PLATFORM_MAX_PATH);
+		kv.GetString("goal_t", tgoal, sizeof(tgoal));
 		ExplodeString(tgoal, ";", tgoalDatas, 3, 32);
 		TGoalSpawnPoint[XPos] = StringToFloat(tgoalDatas[0]);
 		TGoalSpawnPoint[YPos] = StringToFloat(tgoalDatas[1]);
@@ -674,7 +726,7 @@ void LoadMapConfig()
 		// CT goal position
 		char ctgoal[512];
 		char ctgoalDatas[3][32];
-		kv.GetString("goal_ct", ctgoal, PLATFORM_MAX_PATH);
+		kv.GetString("goal_ct", ctgoal, sizeof(ctgoal));
 		ExplodeString(ctgoal, ";", ctgoalDatas, 3, 32);
 		CTGoalSpawnPoint[XPos] = StringToFloat(ctgoalDatas[0]);
 		CTGoalSpawnPoint[YPos] = StringToFloat(ctgoalDatas[1]);
@@ -703,34 +755,6 @@ public void OnMapStart()
 	{
 		AcceptEntityInput(iEnt,"kill"); //Destroy the entity
 	}
-	
-	ServerCommand("mp_ignore_round_win_conditions 0");
-	
-	// Remove freezetime, S4 doesn't have freeze time
-	ServerCommand("mp_freezetime 0");
-	
-	// Remove shit
-	ServerCommand("mp_weapons_allow_map_placed 0");
-	ServerCommand("mp_death_drop_gun 0");
-	
-	// Remove cash
-	ServerCommand("mp_playercashawards 0");
-	ServerCommand("mp_teamcashawards 0");
-	
-	// Give free armor
-	ServerCommand("mp_free_armor 2");
-	
-	// Bot is not allowed in this gamemode, because they don't know how to play
-	ServerCommand("bot_quota 0");
-	
-	// We slay loser on round end, so we have to disable this. DO NOT CHANGE THIS
-	ServerCommand("mp_autokick 0");
-	
-	// Match restart delay. DO NOT CHANGE THIS
-	ServerCommand("mp_match_restart_delay 20");
-	
-	// Win panel show up delay. DO NOT CHANGE THIS
-	ServerCommand("mp_win_panel_display_time 7");
 	
 	// Download Sound
 	AddFileToDownloadsTable("sound/touchdown/_eu_1minute.mp3");
@@ -991,6 +1015,19 @@ public void OnMapStart()
 	// Score
 	score_t = 0;
 	score_ct = 0;
+	
+	// Cvars
+	i_mp_ignore_round_win_conditions = 0;
+	mp_ignore_round_win_conditions.IntValue = 0;
+	mp_freezetime.IntValue = 0;
+	mp_weapons_allow_map_placed.IntValue = 0;
+	mp_death_drop_gun.IntValue = 0;
+	mp_playercashawards.IntValue = 0;
+	mp_teamcashawards.IntValue = 0;
+	mp_free_armor.IntValue = 2;
+	bot_quota.IntValue = 0;
+	mp_match_restart_delay.IntValue = 20;
+	mp_win_panel_display_time.IntValue = 7;
 }
 
 // https://wiki.alliedmods.net/Csgo_quirks
@@ -1058,6 +1095,7 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 		CreateTimer(0.1, ShowWeaponMenu, client);
 		CreateTimer(0.1, FreezeClient, client);
 		EmitSoundToClient(client, "*/touchdown/player_respawn.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+		EmitSoundToSpec(client, "*/touchdown/player_respawn.mp3");
 	}
 	
 	// https://github.com/mukunda-/rxg-plugins/blob/fc533fcc9aeab3715b89d1a5c99905deb9a17865/gamefixes/restart_fix.sp
@@ -1066,7 +1104,11 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 	if(GetClientTeam(client) == CT) g_spawned_ct = true;
 	
 	// both team have players
-	if(g_spawned_t && g_spawned_ct && !bWarmUp) ServerCommand("mp_ignore_round_win_conditions 1");
+	if(g_spawned_t && g_spawned_ct && !bWarmUp)
+	{
+		i_mp_ignore_round_win_conditions = 1;
+		mp_ignore_round_win_conditions.IntValue = 1;
+	}
 }
 
 // Weapons
@@ -1268,8 +1310,7 @@ public int MenuHandlers_PrimaryWeapon(Menu menu, MenuAction action, int client, 
 			char info[32];
 			GetMenuItem(menu, item, info, sizeof(info));
 			
-			if(!HasWeapon(client) && IsPlayerAlive(client))
-				GivePlayerItem(client, info);
+			if(!HasWeapon(client) && IsPlayerAlive(client))	GivePlayerItem(client, info);
 			
 			g_LastPrimaryWeapon[client] = info;
 			
@@ -1459,7 +1500,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	CreateTimer(0.5, PlayBGMTimer);
 	
 	// round countdown
-	roundtime = GetConVarFloat(FindConVar("mp_roundtime"));
+	roundtime = FindConVar("mp_roundtime").FloatValue;
 	roundtime *= 60.0;
 	hRoundCountdown = CreateTimer(1.0, RoundCountdown, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 }
@@ -1973,8 +2014,7 @@ public Action NextRoundCountdown(Handle tmr)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
-				PrintHintText(i, "%T", "Next Round In", i);
-				
+				PrintHintText(i, "%T", "Next Round In", i);			
 				
 				switch(GetRandomInt(1,4))
 				{
@@ -2224,43 +2264,43 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking1.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking1.mp3");
 							}
 							case 3:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking2.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking2.mp3");
 							}
 							case 4:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking3.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking3.mp3");
 							}
 							case 5:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking4.mp3");
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking4.mp3");
 							}
 							case 6:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking5.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking5.mp3");
 							}
 							case 7:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking6.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking6.mp3");
 							}
 							case 8:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking7.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking7.mp3");
 							}
 						}
 					}
@@ -2273,18 +2313,18 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_defending.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_defending.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_defending.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_defending1.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_defending1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_defending1.mp3");
 							}
 							case 3:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_defending2.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_defending2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_defending2.mp3");
 							}
 						}
 					}
@@ -2303,43 +2343,43 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking1.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking1.mp3");
 							}
 							case 3:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking2.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking2.mp3");
 							}
 							case 4:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking3.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking3.mp3");
 							}
 							case 5:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking4.mp3");
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking4.mp3");
 							}
 							case 6:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking5.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking5.mp3");
 							}
 							case 7:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking6.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking6.mp3");
 							}
 							case 8:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_attacking7.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_attacking7.mp3");
 							}
 						}
 					}
@@ -2352,18 +2392,18 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_defending.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_defending.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_defending.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_defending1.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_defending1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_defending1.mp3");
 							}
 							case 3:
 							{
-								//ClientCommand(i, "play *touchdown/you_are_defending2.mp3");
 								EmitSoundToClient(i, "*/touchdown/you_are_defending2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToSpec(i, "*/touchdown/you_are_defending2.mp3");
 							}
 						}
 					}
@@ -2443,6 +2483,12 @@ public Action RAcquiredBallText(Handle tmr, any client)
 {
 	if(IsValidClient(client) && !IsFakeClient(client))
 		PrintHintText(client, "%T", "Rival Acquired Ball", client);
+}
+
+public Action SpecBallText(Handle tmr, any client)
+{
+	if(IsValidClient(client) && !IsFakeClient(client))
+		PrintHintText(client, "%T", "Acquired Ball", client);
 }
 
 void CreateCTGoalParticle()
@@ -2808,13 +2854,11 @@ void DropBall(int client)
 	// Play attack defence sound to other player
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (IsValidClient(i) && GetClientTeam(i) != SPEC)
+		if (IsValidClient(i) && !IsFakeClient(i) && GetClientTeam(i) != SPEC)
 		{
-			if(GetClientTeam(client) == TR)
-				CPrintToChat(i, "%T", "Drop Ball T", i, client);
+			if(GetClientTeam(client) == TR)	CPrintToChat(i, "%T", "Drop Ball T", i, client);
 				
-			else if(GetClientTeam(client) == CT)
-				CPrintToChat(i, "%T", "Drop Ball CT", i, client);
+			else if(GetClientTeam(client) == CT)	CPrintToChat(i, "%T", "Drop Ball CT", i, client);
 			
 			// Nice Chance!
 			if(GetClientTeam(i) != GetClientTeam(client))
@@ -2825,12 +2869,13 @@ void DropBall(int client)
 				{
 					case 1:
 					{
-						//ClientCommand(i, "play *touchdown/red_fumbled.mp3");
 						EmitSoundToClient(i, "*/touchdown/red_fumbled.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/red_fumbled.mp3");
 					}
 					case 2:
 					{
 						EmitSoundToClient(i, "*/touchdown/red_fumbled1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/red_fumbled1.mp3");
 					}
 				}
 			}
@@ -2844,24 +2889,28 @@ void DropBall(int client)
 				{
 					case 1:
 					{
-						//ClientCommand(i, "play *touchdown/blue_fumbled.mp3");
 						EmitSoundToClient(i, "*/touchdown/blue_fumbled.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/blue_fumbled.mp3");
 					}
 					case 2:
 					{
 						EmitSoundToClient(i, "*/touchdown/blue_fumbled1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/blue_fumbled1.mp3");
 					}
 					case 3:
 					{
 						EmitSoundToClient(i, "*/touchdown/blue_fumbled2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/blue_fumbled2.mp3");
 					}
 					case 4:
 					{
 						EmitSoundToClient(i, "*/touchdown/blue_fumbled3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/blue_fumbled3.mp3");
 					}
 					case 5:
 					{
 						EmitSoundToClient(i, "*/touchdown/blue_fumbled4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/blue_fumbled4.mp3");
 					}
 				}
 			}
@@ -2973,8 +3022,7 @@ void RoundEnd_OnGameFrame()
 
 public int GetCurrentRoundTime() 
 {
-	Handle h_freezeTime = FindConVar("mp_freezetime");
-	int freezeTime = GetConVarInt(h_freezeTime);
+	int freezeTime = mp_freezetime.IntValue;
 	return (GetTime() - g_roundStartedTime) - freezeTime;
 }
 
@@ -3047,21 +3095,18 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 		}
 	}
 	// Round NOT draw
+	// Emit sound to spec
 	else
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
-				// No sound and overlay for SPEC..
-				if(GetClientTeam(i) == SPEC)
-					continue;
-				
-				// TR win this round, play sound & overlay to TR
-				else if (Winner == TR && GetClientTeam(i) == TR)
+				if (Winner == TR && GetClientTeam(i) == TR)
 				{
 					SetClientOverlay(i, "touchdown/touchdown_green");
-					
+					CreateTimer(8.0, DeleteOverlay, i);
+
 					// TR lead 1 point
 					if(score_t - score_ct == 1)
 					{
@@ -3069,13 +3114,13 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_take_the_lead.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_take_the_lead1.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead1.mp3");
 							}
 						}
 					}
@@ -3087,28 +3132,28 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores1.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores1.mp3");
 							}
 							case 3:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores2.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores2.mp3");
 							}
 							case 4:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores3.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores3.mp3");
 							}
 							case 5:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores4.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores4.mp3");
 							}
 						}
 					}
@@ -3118,12 +3163,14 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				else if (Winner == TR && GetClientTeam(i) == CT) 
 				{
 					SetClientOverlay(i, "touchdown/touchdown_red");
+					CreateTimer(8.0, DeleteOverlay, i);
 					
 					// TR lead 1 point
 					if(score_t - score_ct == 1)
 					{
 						//ClientCommand(i, "play *touchdown/red_team_take_the_lead.mp3");
 						EmitSoundToClient(i, "*/touchdown/red_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/red_team_take_the_lead.mp3");
 					}
 					else
 					{
@@ -3133,14 +3180,17 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 							{
 								//ClientCommand(i, "play *touchdown/red_team_scores.mp3");
 								EmitSoundToClient(i, "*/touchdown/red_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/red_team_scores.mp3");
 							}
 							case 2:
 							{
 								EmitSoundToClient(i, "*/touchdown/red_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/red_team_scores1.mp3");
 							}
 							case 3:
 							{
 								EmitSoundToClient(i, "*/touchdown/red_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/red_team_scores2.mp3");
 							}
 						}
 					}
@@ -3150,6 +3200,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				else if (Winner == CT && GetClientTeam(i) == CT) 
 				{
 					SetClientOverlay(i, "touchdown/touchdown_green");
+					CreateTimer(8.0, DeleteOverlay, i);
 					
 					// CT lead 1 point
 					if(score_ct - score_t == 1)
@@ -3158,13 +3209,13 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_take_the_lead.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_take_the_lead1.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead1.mp3");
 							}
 						}
 					}
@@ -3174,28 +3225,28 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores1.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores1.mp3");
 							}
 							case 3:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores2.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores2.mp3");
 							}
 							case 4:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores3.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores3.mp3");
 							}
 							case 5:
 							{
-								//ClientCommand(i, "play *touchdown/blue_team_scores4.mp3");
 								EmitSoundToClient(i, "*/touchdown/blue_team_scores4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/blue_team_scores4.mp3");
 							}
 						}
 					}
@@ -3205,12 +3256,13 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				else if (Winner == CT && GetClientTeam(i) == TR) 
 				{
 					SetClientOverlay(i, "touchdown/touchdown_red");
+					CreateTimer(8.0, DeleteOverlay, i);
 					
 					// CT lead 1 point
 					if(score_ct - score_t == 1)
 					{
-						//ClientCommand(i, "play *touchdown/red_team_take_the_lead.mp3");
 						EmitSoundToClient(i, "*/touchdown/red_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToSpec(i, "*/touchdown/red_team_take_the_lead.mp3");
 					}
 					else
 					{
@@ -3220,22 +3272,21 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 							{
 								//ClientCommand(i, "play *touchdown/red_team_scores.mp3");
 								EmitSoundToClient(i, "*/touchdown/red_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/red_team_scores.mp3");
 							}
 							case 2:
 							{
-								//ClientCommand(i, "play *touchdown/red_team_scores1.mp3");
 								EmitSoundToClient(i, "*/touchdown/red_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/red_team_scores1.mp3");
 							}
 							case 3:
 							{
-								//ClientCommand(i, "play *touchdown/red_team_scores2.mp3");
 								EmitSoundToClient(i, "*/touchdown/red_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToSpec(i, "*/touchdown/red_team_scores2.mp3");
 							}
 						}
 					}
 				}
-				
-				CreateTimer(8.0, DeleteOverlay, i);
 			}
 		}
 	}
@@ -3298,53 +3349,12 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		CreateTimer(ftd_respawn, Respawn_Player, client);
 	}
 	
-	// Play kill sounf when player not suicide
-	if(IsValidClient(attacker) && client != attacker && IsValidClient(client))
-	{
-		// Play sound
-		switch(GetRandomInt(1,8))
-		{
-			case 1:
-			{
-				//ClientCommand(attacker, "play *touchdown/kill1.mp3");
-				EmitSoundToClient(attacker, "*/touchdown/kill1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-			case 2:
-			{
-				EmitSoundToClient(attacker, "*/touchdown/kill2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-			case 3:
-			{
-				EmitSoundToClient(attacker, "*/touchdown/kill3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-			case 4:
-			{
-				EmitSoundToClient(attacker, "*/touchdown/kill4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-			case 5:
-			{
-				EmitSoundToClient(attacker, "*/touchdown/kill5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-			case 6:
-			{
-				EmitSoundToClient(attacker, "*/touchdown/kill6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-			case 7:
-			{
-				EmitSoundToClient(attacker, "*/touchdown/kill7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-			case 8:
-			{
-				EmitSoundToClient(attacker, "*/touchdown/kill8.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
-			}
-		}
-	}
-	
 	// Play death sound and dissolve effect
-	if(IsValidClient(client))
+	if(IsValidClient(client) && !IsFakeClient(client))
 	{	
 		// Sound
 		EmitSoundToClient(client, "*/touchdown/player_dead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+		EmitSoundToSpec(client, "*/touchdown/player_dead.mp3");
 		
 		// EU S4 doesn't really have "voice", only sound effect wtf.
 		switch(GetRandomInt(1,4))
@@ -3352,24 +3362,77 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			case 1:
 			{
 				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_blow.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_blow.mp3");
 			}
 			case 2:
 			{
 				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_hard.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_hard.mp3");
 			}
 			case 3:
 			{
 				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_normal.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_normal.mp3");
 			}
 			case 4:
 			{
 				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_shock.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_shock.mp3");
 			}
 		}
 		
 		// Dissolve
 		// https://forums.alliedmods.net/showthread.php?t=71084
 		CreateTimer(0.2, Dissolve, client);
+		
+		// Not suicide
+		if(client != attacker && IsValidClient(attacker) && !IsFakeClient(attacker))
+		{
+			// Play kill sound
+			switch(GetRandomInt(1,8))
+			{
+				case 1:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill1.mp3");
+				}
+				case 2:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill2.mp3");
+				}
+				case 3:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill3.mp3");
+				}
+				case 4:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill4.mp3");
+				}
+				case 5:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill5.mp3");
+				}
+				case 6:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill6.mp3");
+				}
+				case 7:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill7.mp3");
+				}
+				case 8:
+				{
+					EmitSoundToClient(attacker, "*/touchdown/kill8.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToSpec(attacker, "*/touchdown/kill8.mp3");
+				}
+			}
+		}
 	}
 	
 	// someone have the ball
@@ -3716,7 +3779,6 @@ void ResetBall()
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
-			//ClientCommand(i, "play *touchdown/_eu_ball_reset.mp3");
 			EmitSoundToClient(i, "*/touchdown/_eu_ball_reset.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
 			
 			// Remove hint text
@@ -3784,7 +3846,8 @@ public Action Event_WinPanelMatch(Handle event, const char[] name, bool dontBroa
 {
 	CreateTimer(7.0, MatchEndSound);
 	ResetTimer();
-	ServerCommand("mp_ignore_round_win_conditions 0");
+	i_mp_ignore_round_win_conditions = 0;
+	mp_ignore_round_win_conditions.IntValue = 0;
 }
 
 public Action MatchEndSound(Handle tmr)
@@ -3810,10 +3873,12 @@ public Action MatchEndSound(Handle tmr)
 						case 1:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match.mp3");
 						}
 						case 2:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match1.mp3");
 						}
 					}
 				}
@@ -3828,10 +3893,12 @@ public Action MatchEndSound(Handle tmr)
 						case 1:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_lost_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match.mp3");
 						}
 						case 2:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_lost_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match1.mp3");
 						}
 					}
 				}
@@ -3853,10 +3920,12 @@ public Action MatchEndSound(Handle tmr)
 						case 1:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match.mp3");
 						}
 						case 2:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match1.mp3");
 						}
 					}
 				}
@@ -3871,15 +3940,17 @@ public Action MatchEndSound(Handle tmr)
 						case 1:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_lost_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match.mp3");
 						}
 						case 2:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_lost_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match1.mp3");
 						}
 					}
 				}
 			}
-			// CT Win
+			// Draw, S4 don't have draw sound so we play win sound
 			else if (score_t == score_ct)
 			{
 				// Stop bgm
@@ -3895,10 +3966,12 @@ public Action MatchEndSound(Handle tmr)
 						case 1:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match.mp3");
 						}
 						case 2:
 						{
 							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match1.mp3");
 						}
 					}
 				}
@@ -3978,7 +4051,10 @@ public void OnClientDisconnect(int client)
 	
 	// both team no player
 	if(GetTeamClientCount(CT) == 0 && GetTeamClientCount(TR) == 0)
-		ServerCommand("mp_ignore_round_win_conditions 0");
+	{
+		i_mp_ignore_round_win_conditions = 0;
+		mp_ignore_round_win_conditions.IntValue = 0;
+	}
 		
 	// save stats
 	if(btd_stats_enabled || btd_points_enabled)	SaveClientStats(client);
@@ -4105,79 +4181,119 @@ public void OnConVarChanged(ConVar convar, const char[] oldValue, const char[] n
 {
 	if (convar == td_respawn) 
 	{
-		ftd_respawn = GetConVarFloat(td_respawn);
+		ftd_respawn = td_respawn.FloatValue;
 	}
 	else if (convar == td_reset) 
 	{
-		ftd_reset = GetConVarFloat(td_reset);
+		ftd_reset = td_reset.FloatValue;
 	}
 	else if (convar == td_ballposition) 
 	{
-		itd_ballposition = GetConVarInt(td_ballposition);
+		itd_ballposition = td_ballposition.IntValue;
 	}
 	else if (convar == td_stats_enabled) 
 	{
-		btd_stats_enabled = GetConVarBool(td_stats_enabled);
+		btd_stats_enabled = td_stats_enabled.BoolValue;
 	}
 	else if (convar == td_stats_min) 
 	{
-		itd_stats_min = GetConVarInt(td_stats_min);
+		itd_stats_min = td_stats_min.IntValue;
 	}
 	else if (convar == td_points_enabled) 
 	{
-		btd_points_enabled = GetConVarBool(td_points_enabled);
+		btd_points_enabled = td_points_enabled.BoolValue;
 	}
 	else if (convar == td_points_td) 
 	{
-		itd_points_td = GetConVarInt(td_points_td);
+		itd_points_td = td_points_td.IntValue;
 	}
 	else if (convar == td_points_kill) 
 	{
-		itd_points_kill = GetConVarInt(td_points_kill);
+		itd_points_kill = td_points_kill.IntValue;
 	}
 	else if (convar == td_points_assist) 
 	{
-		itd_points_assist = GetConVarInt(td_points_assist);
+		itd_points_assist = td_points_assist.IntValue;
 	}
 	else if (convar == td_points_bonus) 
 	{
-		ftd_points_bonus = GetConVarFloat(td_points_bonus);
+		ftd_points_bonus = td_points_bonus.FloatValue;
 	}
 	else if (convar == td_points_death) 
 	{
-		itd_points_death = GetConVarInt(td_points_death);
+		itd_points_death = td_points_death.IntValue;
 	}
 	else if (convar == td_points_dropball) 
 	{
-		itd_points_dropball = GetConVarInt(td_points_dropball);
+		itd_points_dropball = td_points_dropball.IntValue;
 	}
 	else if (convar == td_points_killball) 
 	{
-		itd_points_killball = GetConVarInt(td_points_killball);
+		itd_points_killball = td_points_killball.IntValue;
 	}
 	else if (convar == td_points_pickball) 
 	{
-		itd_points_pickball = GetConVarInt(td_points_pickball);
+		itd_points_pickball = td_points_pickball.IntValue;
 	}
 	else if (convar == td_points_start) 
 	{
-		itd_points_start = GetConVarInt(td_points_start);
+		itd_points_start = td_points_start.IntValue;
 	}
 	else if (convar == td_points_min) 
 	{
-		itd_points_min = GetConVarInt(td_points_min);
+		itd_points_min = td_points_min.IntValue;
 	}
 	else if (convar == td_points_min_enabled) 
 	{
-		btd_points_min_enabled = GetConVarBool(td_points_min_enabled);
+		btd_points_min_enabled = td_points_min_enabled.BoolValue;
 	}
 	else if (convar == td_taser) 
 	{
-		btd_taser = GetConVarBool(td_taser);
+		btd_taser = td_taser.BoolValue;
 	}
 	else if (convar == td_healthshot) 
 	{
-		btd_healthshot = GetConVarBool(td_healthshot);
+		btd_healthshot = td_healthshot.BoolValue;
+	}
+	else if (convar == mp_freezetime)
+	{
+		mp_freezetime.IntValue = 0;
+	}
+	else if (convar == mp_weapons_allow_map_placed)
+	{
+		mp_weapons_allow_map_placed.IntValue = 0;
+	}
+	else if (convar == mp_death_drop_gun)
+	{
+		mp_death_drop_gun.IntValue = 0;
+	}
+	else if (convar == mp_playercashawards)
+	{
+		mp_playercashawards.IntValue = 0;
+	}
+	else if (convar == mp_teamcashawards)
+	{
+		mp_teamcashawards.IntValue = 0;
+	}
+	else if (convar == mp_free_armor)
+	{
+		mp_free_armor.IntValue = 2;
+	}
+	else if (convar == bot_quota)
+	{
+		bot_quota.IntValue = 0;
+	}
+	else if (convar == mp_match_restart_delay)
+	{
+		mp_match_restart_delay.IntValue = 20;
+	}
+	else if (convar == mp_win_panel_display_time)
+	{
+		mp_win_panel_display_time.IntValue = 7;
+	}
+	else if (convar == mp_ignore_round_win_conditions)
+	{
+		mp_ignore_round_win_conditions.IntValue = i_mp_ignore_round_win_conditions;
 	}
 }
 
@@ -4376,8 +4492,7 @@ public Action Event_HalfTime(Handle event, const char[] name, bool dontBroadcast
 // Block player use "e" to pick up weapon.
 public Action OnWeaponCanUse(int client, int weapon) 
 {
-    if(GetClientButtons(client) & IN_USE)
-        return Plugin_Handled; 
+    if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
     
     return Plugin_Continue; 
 }
@@ -4385,8 +4500,7 @@ public Action OnWeaponCanUse(int client, int weapon)
 // Block player drop weapon.
 public Action OnWeaponDrop(int client, int weapon) 
 {
-    if(GetClientButtons(client) & IN_USE)
-        return Plugin_Handled; 
+    if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
     
     return Plugin_Continue; 
 }  
@@ -4394,8 +4508,7 @@ public Action OnWeaponDrop(int client, int weapon)
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
 {
-	if (!IsValidClient(client) || IsFakeClient(client))
-		return Plugin_Continue;
+	if (!IsValidClient(client) || IsFakeClient(client))	return Plugin_Continue;
 
 	// https://forums.alliedmods.net/showpost.php?p=2514392&postcount=2
 	if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK)
@@ -5211,4 +5324,26 @@ public Action Dissolve(Handle timer, any client)
 		AcceptEntityInput(ent, "Dissolve");
 		AcceptEntityInput(ent, "kill");
 	} 
+}
+
+// Edit from nikooo777's cksurf
+void EmitSoundToSpec(int client, char[] buffer)
+{
+	for (int x = 1; x <= MaxClients; x++)
+	{
+		if (IsValidClient(x) && !IsPlayerAlive(x))
+		{
+			int SpecMode = GetEntProp(x, Prop_Send, "m_iObserverMode");
+			int Target = GetEntPropEnt(x, Prop_Send, "m_hObserverTarget");
+			
+			if (SpecMode == 4 && Target == client) // Firstperson
+			{
+				EmitSoundToClient(x, buffer, Target, SNDCHAN_STATIC, _, _, g_fvol[x]);
+			}
+			else if (SpecMode == 5 && Target == client) // Thirdperson
+			{
+				EmitSoundToClient(x, buffer, x, SNDCHAN_STATIC, _, _, g_fvol[x]);
+			}
+		}
+	}
 }
