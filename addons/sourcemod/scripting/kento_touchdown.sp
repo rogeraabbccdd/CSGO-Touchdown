@@ -1,167 +1,8 @@
-// Changelog
-// 1.1
-// Freeze all players except who touchdown in round end. (like original S4)
-// Only the player who touchdown can fire his weapon in round end. (like original S4)
-// Fix sm_ballreset.
-// Fix ball bounce sound.
-//
-// 1.2
-// Fix bugs.
-//
-// 1.3
-// Fix bugs.
-//
-// 1.4
-// Fix bugs.
-// All players can't fire weapon and move if time is up.
-//
-// 1.5
-// Fix warmup.
-// New bgm "Come On" which is played in map "Tunnel" in S4. (song name is "Zet" in DJMAX)
-// New bgm "Access" which is played in map "Neoniac" in S4.
-// New bgm "Grave Consequence" which is played in map "Colosseum" in S4.
-// New bgm "Syriana" which is played in map "Side 3" in S4.
-// New bgm "StarFish" which is played in map "Warp Ship" in S4.
-// New bgm "NB Power" which is played in map "Circle" in S4.
-//
-// 2.0
-// Add Mysql stats and rank
-// Some changes (Remove respawn timer in warmup, add healthshot and taser)
-// Lots of New cvars
-//
-// 2.1
-// Remove insert sql query in error log. (I forgot to remove this before release.)
-// Fix kill timer bug.
-//
-// 2.2
-// Fix kill messages display wrong point 
-// Fix mp_ignore... cause warmup not end problem
-//
-// 2.3
-// Fix pistol menu.
-//
-// 2.4
-// Fix no touchdown in databases.cfg plugin failed to load.
-// Change !vol limit from "0.2~1.0" to "0.0~1.0".
-// Points and stats are disabled by default now.
-// Start cleaning my shit code.
-// 
-// 2.5
-// Add S4 player dead sound.
-// Add dissolve effect to dead bodies. (like original S4.)
-// 
-// 2.6
-// Optimize
-// Fix some bug.
-//
-// 2.7
-// Optimize
-// Fix workshop map name.
-// Now spec can hear kill, death, attack, defence, respawn and match end sounds
-//
-// Maybe we can add
-// Jump Sound? jump_up.mp3
-// Critical sound
-//
-// S4 TD WIKI
-// http://s4league.wikia.com/wiki/Touchdown
-//
-/* Sounds
-// count down
-touchdown/_eu_1minute.mp3
-touchdown/_eu_30second.mp3
-touchdown/_eu_3minute.mp3
-touchdown/_eu_5minute.mp3
-touchdown/1.mp3
-touchdown/2.mp3
-touchdown/3.mp3
-touchdown/4.mp3
-touchdown/5.mp3
-touchdown/6.mp3
-touchdown/7.mp3
-touchdown/8.mp3
-touchdown/9.mp3
-touchdown/10.mp3
-touchdown/inter_timeover.mp3
-touchdown/new_round_in.mp3
-touchdown/new_round_in1.mp3
-touchdown/next_round_in.mp3
-touchdown/next_round_in1.mp3
-
-// maybe we can use this
-touchdown/attack_down.mp3
-touchdown/10_winlose.mp3
-
-// Ball drop
-touchdown/blue_fumbled.mp3
-touchdown/blue_fumbled1.mp3
-touchdown/blue_fumbled2.mp3
-touchdown/blue_fumbled3.mp3
-touchdown/blue_fumbled4.mp3
-
-// Ball drop enemy
-touchdown/red_fumbled.mp3
-touchdown/red_fumbled1.mp3
-
-// Touch Down Win
-touchdown/blue_team_scores.mp3
-touchdown/blue_team_scores1.mp3
-touchdown/blue_team_scores2.mp3
-touchdown/blue_team_scores3.mp3
-touchdown/blue_team_scores4.mp3
-
-// Touch Down 1 point lead
-touchdown/blue_team_take_the_lead.mp3
-touchdown/blue_team_take_the_lead1.mp3
-
-// Touch Down Lose
-touchdown/red_team_scores.mp3
-touchdown/red_team_scores1.mp3
-touchdown/red_team_scores2.mp3
-touchdown/red_team_take_the_lead.mp3
-
-// Kill
-touchdown/kill1.mp3
-touchdown/kill2.mp3
-touchdown/kill3.mp3
-touchdown/kill4.mp3
-touchdown/kill5.mp3
-touchdown/kill6.mp3
-touchdown/kill7.mp3
-touchdown/kill8.mp3
-
-// Round Start
-touchdown/ready1.mp3
-touchdown/ready2.mp3
-
-// ATK & DEF
-touchdown/you_are_attacking.mp3
-touchdown/you_are_attacking1.mp3
-touchdown/you_are_attacking2.mp3
-touchdown/you_are_attacking3.mp3
-touchdown/you_are_attacking4.mp3
-touchdown/you_are_attacking5.mp3
-touchdown/you_are_attacking6.mp3
-touchdown/you_are_attacking7.mp3
-touchdown/you_are_defending.mp3
-touchdown/you_are_defending1.mp3
-touchdown/you_are_defending2.mp3
-
-// Match End
-touchdown/you_have_won_the_match.mp3
-touchdown/you_have_won_the_match1.mp3
-touchdown/you_lost_the_match.mp3
-touchdown/you_lost_the_match1.mp3
-
-// misc
-touchdown/_eu_ball_reset.mp3
-touchdown/player_respawn.mp3
-
-// Critical
-touchdown/critical.mp3
-
-// jump
-touchdown/jump_up.mp3
+/*
+Sound files can be used in the future.
+critical.mp3 - 	Critical (S4 Critical has 3d text effect)
+jump_up.mp3 - Jump
+attack_down.mp3 - ???
 */
 
 #include <sourcemod>
@@ -324,7 +165,6 @@ ConVar mp_death_drop_gun;
 ConVar mp_playercashawards;
 ConVar mp_teamcashawards;
 ConVar mp_free_armor;
-ConVar bot_quota;
 ConVar mp_match_restart_delay;
 ConVar mp_win_panel_display_time;
 ConVar mp_restartgame;
@@ -474,7 +314,6 @@ public void OnPluginStart()
 	mp_playercashawards = FindConVar("mp_playercashawards");
 	mp_teamcashawards = FindConVar("mp_teamcashawards");
 	mp_free_armor = FindConVar("mp_free_armor");
-	bot_quota = FindConVar("bot_quota");
 	mp_match_restart_delay = FindConVar("mp_match_restart_delay");
 	mp_win_panel_display_time = FindConVar("mp_win_panel_display_time");
 	mp_restartgame = FindConVar("mp_restartgame");
@@ -510,7 +349,6 @@ public void OnPluginStart()
 	mp_playercashawards.AddChangeHook(OnConVarChanged);
 	mp_teamcashawards.AddChangeHook(OnConVarChanged);
 	mp_free_armor.AddChangeHook(OnConVarChanged);
-	bot_quota.AddChangeHook(OnConVarChanged);
 	mp_match_restart_delay.AddChangeHook(OnConVarChanged);
 	mp_win_panel_display_time.AddChangeHook(OnConVarChanged);
 	mp_ignore_round_win_conditions.AddChangeHook(OnConVarChanged);
@@ -616,7 +454,7 @@ public int Native_GetClientDropball(Handle plugin, int numParams)
 	int client = GetNativeCell(1)
 	return Stats[client][DROPBALL];
 }
-
+	
 public void Restart_Handler(Handle convar, const char[] oldValue, const char[] newValue)
 {
     if ((convar == mp_restartgame))
@@ -1025,7 +863,6 @@ public void OnMapStart()
 	mp_playercashawards.IntValue = 0;
 	mp_teamcashawards.IntValue = 0;
 	mp_free_armor.IntValue = 2;
-	bot_quota.IntValue = 0;
 	mp_match_restart_delay.IntValue = 20;
 	mp_win_panel_display_time.IntValue = 7;
 }
@@ -4278,10 +4115,6 @@ public void OnConVarChanged(ConVar convar, const char[] oldValue, const char[] n
 	else if (convar == mp_free_armor)
 	{
 		mp_free_armor.IntValue = 2;
-	}
-	else if (convar == bot_quota)
-	{
-		bot_quota.IntValue = 0;
 	}
 	else if (convar == mp_match_restart_delay)
 	{
