@@ -4,6 +4,13 @@
 #define _Touchdown_included
 
 /**
+ * Gets the ball origin.
+ *
+ * @return true on success, otherwise false.
+ */
+native bool Touchdown_GetBallOrigin(float origin[3]);
+
+/**
  * Gets the ball holder.
  *
  * @return client id.
@@ -24,6 +31,15 @@ native int Touchdown_GetBallDropTeam();
  * @return	True if client holding the ball.
  */
 native bool Touchdown_IsClientBallHolder(int client);
+
+/**
+ * Gets the team's flag origin.
+ *
+ * @param team			Flag of team.
+ * @param origin 		Flag origin.
+ * @return true on success, otherwise false.
+ */
+native bool Touchdown_GetFlagOrigin(int team, float origin[3]);
 
 /**
  * Gets client points.
