@@ -368,9 +368,12 @@ public void OnPluginStart()
 // Create natives and forwards
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
+	CreateNative("Touchdown_GetBallOrigin", Native_GetBallOrigin);
 	CreateNative("Touchdown_GetBallHolder", Native_GetBallHolder);
 	CreateNative("Touchdown_GetBallDropTeam", Native_GetBallDropTeam);
 	CreateNative("Touchdown_IsClientBallHolder", Native_IsClientBallHolder);
+	
+	CreateNative("Touchdown_GetFlagOrigin", Native_GetFlagOrigin);
 	
 	CreateNative("Touchdown_GetClientPoints", Native_GetClientPoints);
 	CreateNative("Touchdown_GetClientKills", Native_GetClientKills);
@@ -390,6 +393,31 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	return APLRes_Success;
 }
 
+public int Native_GetBallOrigin(Handle plugin, int numParams)
+{
+	// if received wrong params?
+	if (numParams > 1)
+	{
+		ThrowNativeError(1, "Received wrong params. %d (expected : 1)", numParams);
+		return 0;
+	}
+	
+	int index;
+	if (BallRef != INVALID_ENT_REFERENCE)
+		index = BallRef;
+	else if (DropBallRef != INVALID_ENT_REFERENCE)
+		index = DropBallRef;
+	else if (BallHolder > 0)
+		index = BallHolder;
+	
+	float ballOrigin[3];
+	GetEntPropVector(index, Prop_Send, "m_vecOrigin", ballOrigin);
+	
+	SetNativeArray(1, ballOrigin, 3);
+	
+	return 1;
+}
+
 public int Native_GetBallHolder(Handle plugin, int numParams)
 {
 	return BallHolder;
@@ -405,6 +433,37 @@ public int Native_IsClientBallHolder(Handle plugin, int numParams)
 	if(BallHolder == GetNativeCell(1))
 		return true;
 	else return false;
+}
+
+public int Native_GetFlagOrigin(Handle plugin, int numParams)
+{
+	// if received wrong params?
+	if (numParams > 2)
+	{
+		ThrowNativeError(1, "Received wrong params. %d (expected : 2)", numParams);
+		return 0;
+	}
+	
+	int flagTeam = GetNativeCell(1);
+	float flagOrigin[3];
+	if (flagTeam == CS_TEAM_T)
+	{
+		flagOrigin[0] = TGoalSpawnPoint[XPos];
+		flagOrigin[1] = TGoalSpawnPoint[YPos];
+		flagOrigin[2] = TGoalSpawnPoint[ZPos];
+	}
+	else if (flagTeam == CS_TEAM_CT)
+	{
+		flagOrigin[0] = CTGoalSpawnPoint[XPos];
+		flagOrigin[1] = CTGoalSpawnPoint[YPos];
+		flagOrigin[2] = CTGoalSpawnPoint[ZPos];
+	}
+	else
+		ThrowNativeError(1, "Received wrong flag of team. %d (expected : 2 or 3)",  flagTeam);
+	
+	SetNativeArray(2, flagOrigin, 3);
+	
+	return 1;
 }
 
 public int Native_GetClientPoints(Handle plugin, int numParams)
@@ -927,13 +986,12 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 {
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
 	
-	if (IsValidClient(client) && !IsFakeClient(client))
-	{	
+	if (!IsFakeClient(client))
 		CreateTimer(0.1, ShowWeaponMenu, client);
-		CreateTimer(0.1, FreezeClient, client);
-		EmitSoundToClient(client, "*/touchdown/player_respawn.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
-		EmitSoundToSpec(client, "*/touchdown/player_respawn.mp3");
-	}
+	
+	CreateTimer(0.1, FreezeClient, client);
+	EmitSoundToClient(client, "*/touchdown/player_respawn.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+	EmitSoundToSpec(client, "*/touchdown/player_respawn.mp3");
 	
 	// https://github.com/mukunda-/rxg-plugins/blob/fc533fcc9aeab3715b89d1a5c99905deb9a17865/gamefixes/restart_fix.sp
 	if(GetClientTeam(client) == TR)	g_spawned_t = true;
@@ -941,7 +999,7 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 	if(GetClientTeam(client) == CT) g_spawned_ct = true;
 	
 	// both team have players
-	if(g_spawned_t && g_spawned_ct && !bWarmUp)
+	if (g_spawned_t && g_spawned_ct && !bWarmUp)
 	{
 		i_mp_ignore_round_win_conditions = 1;
 		mp_ignore_round_win_conditions.IntValue = 1;
@@ -1322,12 +1380,12 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 				case 1:
 				{
 					//ClientCommand(i, "play *touchdown/ready1.mp3");
-					EmitSoundToClient(i, "*/touchdown/ready1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+					EmitSoundToClient(i, "*/touchdown/ready1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				}
 				case 2:
 				{
 					//ClientCommand(i, "play *touchdown/ready2.mp3");
-					EmitSoundToClient(i, "*/touchdown/ready2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+					EmitSoundToClient(i, "*/touchdown/ready2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				}
 			}
 		}
@@ -1375,98 +1433,98 @@ public Action BGMTimer(Handle tmr, any client)
 		if(BGM == 1)
 		{
 			CPrintToChat(client, "%T", "BGM 1", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Chain_Reaction.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Chain_Reaction.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(195.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 2)
 		{
 			CPrintToChat(client, "%T", "BGM 2", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Super_Sonic.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Super_Sonic.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(195.0, BGMTimer, client);
 		}
 	
 		else if(BGM == 3)	
 		{
 			CPrintToChat(client, "%T", "BGM 3", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Nova.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Nova.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(123.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 4)	
 		{
 			CPrintToChat(client, "%T", "BGM 4", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Lobby.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Lobby.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(132.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 5)	
 		{
 			CPrintToChat(client, "%T", "BGM 5", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Dual_Rock.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Dual_Rock.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(163.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 6)	
 		{
 			CPrintToChat(client, "%T", "BGM 6", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Move_Your_Spirit.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Move_Your_Spirit.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(230.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 7)	
 		{
 			CPrintToChat(client, "%T", "BGM 7", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Fuzzy_Control.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Fuzzy_Control.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(159.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 8)	
 		{
 			CPrintToChat(client, "%T", "BGM 8", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Seize.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Seize.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(122.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 9)	
 		{
 			CPrintToChat(client, "%T", "BGM 9", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Syriana.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Syriana.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(92.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 10)	
 		{
 			CPrintToChat(client, "%T", "BGM 10", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Access.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Access.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(145.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 11)	
 		{
 			CPrintToChat(client, "%T", "BGM 11", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Grave_Consequence.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Grave_Consequence.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(99.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 12)	
 		{
 			CPrintToChat(client, "%T", "BGM 12", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Come_On.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Come_On.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(180.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 13)	
 		{
 			CPrintToChat(client, "%T", "BGM 13", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/Starfish.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/Starfish.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(135.0, BGMTimer, client);
 		}
 		
 		else if(BGM == 14)	
 		{
 			CPrintToChat(client, "%T", "BGM 14", client);
-			EmitSoundToClient(client, "*/touchdown/bgm/NB_Power.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+			EmitSoundToClient(client, "*/touchdown/bgm/NB_Power.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(125.0, BGMTimer, client);
 		}
 	}
@@ -1591,7 +1649,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "3 Minutes Left Hint", i);
 				CPrintToChat(i, "%T", "3 Minutes Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/_eu_3minute.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/_eu_3minute.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1605,7 +1663,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "1 Minute Left Hint", i);
 				CPrintToChat(i, "%T", "1 Minute Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/_eu_1minute.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/_eu_1minute.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1619,7 +1677,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "30 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "30 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/_eu_30second.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/_eu_30second.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1633,7 +1691,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "10 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "10 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/10.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/10.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1647,7 +1705,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "9 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "9 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/9.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/9.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1661,7 +1719,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "8 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "8 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/8.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/8.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1675,7 +1733,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "7 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "7 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1689,7 +1747,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "6 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "6 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1703,7 +1761,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "5 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "5 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1717,7 +1775,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "4 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "4 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1731,7 +1789,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "3 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "3 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1745,7 +1803,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "2 Seconds Left Hint", i);
 				CPrintToChat(i, "%T", "2 Seconds Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1759,7 +1817,7 @@ public Action RoundCountdown(Handle tmr)
 				PrintHintText(i, "%T", "1 Second Left Hint", i);
 				CPrintToChat(i, "%T", "1 Second Left", i);
 				
-				EmitSoundToClient(i, "*/touchdown/1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			}
 		}
 	}
@@ -1857,19 +1915,19 @@ public Action NextRoundCountdown(Handle tmr)
 				{
 					case 1:
 					{
-						EmitSoundToClient(i, "*/touchdown/new_round_in.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/new_round_in.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 					}
 					case 2:
 					{
-						EmitSoundToClient(i, "*/touchdown/new_round_in1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/new_round_in1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 					}
 					case 3:
 					{
-						EmitSoundToClient(i, "*/touchdown/next_round_in.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/next_round_in.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 					}
 					case 4:
 					{
-						EmitSoundToClient(i, "*/touchdown/next_round_in1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/next_round_in1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 					}
 				}
 			}
@@ -1882,7 +1940,7 @@ public Action NextRoundCountdown(Handle tmr)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
-				EmitSoundToClient(i, "*/touchdown/5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				PrintHintText(i, "%T", "Next Round In 5", i);
 			}
 		}
@@ -1894,7 +1952,7 @@ public Action NextRoundCountdown(Handle tmr)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
-				EmitSoundToClient(i, "*/touchdown/4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				PrintHintText(i, "%T", "Next Round In 4", i);
 			}
 		}
@@ -1906,7 +1964,7 @@ public Action NextRoundCountdown(Handle tmr)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
-				EmitSoundToClient(i, "*/touchdown/3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				PrintHintText(i, "%T", "Next Round In 3", i);
 			}
 		}
@@ -1918,7 +1976,7 @@ public Action NextRoundCountdown(Handle tmr)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
-				EmitSoundToClient(i, "*/touchdown/2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				PrintHintText(i, "%T", "Next Round In 2", i);
 			}
 		}
@@ -1930,7 +1988,7 @@ public Action NextRoundCountdown(Handle tmr)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i)) 
 			{
-				EmitSoundToClient(i, "*/touchdown/1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				PrintHintText(i, "%T", "Next Round In 1", i);
 			}
 		}
@@ -2101,42 +2159,42 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking2.mp3");
 							}
 							case 4:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking3.mp3");
 							}
 							case 5:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking4.mp3");
 							}
 							case 6:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking5.mp3");
 							}
 							case 7:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking6.mp3");
 							}
 							case 8:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking7.mp3");
 							}
 						}
@@ -2150,17 +2208,17 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_defending.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_defending.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_defending.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_defending1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_defending1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_defending1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_defending2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_defending2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_defending2.mp3");
 							}
 						}
@@ -2180,42 +2238,42 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking2.mp3");
 							}
 							case 4:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking3.mp3");
 							}
 							case 5:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking4.mp3");
 							}
 							case 6:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking5.mp3");
 							}
 							case 7:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking6.mp3");
 							}
 							case 8:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_attacking7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_attacking7.mp3");
 							}
 						}
@@ -2229,17 +2287,17 @@ public void OnStartTouch(int ent, int client)
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_defending.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_defending.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_defending.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_defending1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_defending1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_defending1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/you_are_defending2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+								EmitSoundToClient(i, "*/touchdown/you_are_defending2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 								EmitSoundToSpec(i, "*/touchdown/you_are_defending2.mp3");
 							}
 						}
@@ -2706,12 +2764,12 @@ void DropBall(int client)
 				{
 					case 1:
 					{
-						EmitSoundToClient(i, "*/touchdown/red_fumbled.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/red_fumbled.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/red_fumbled.mp3");
 					}
 					case 2:
 					{
-						EmitSoundToClient(i, "*/touchdown/red_fumbled1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/red_fumbled1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/red_fumbled1.mp3");
 					}
 				}
@@ -2726,27 +2784,27 @@ void DropBall(int client)
 				{
 					case 1:
 					{
-						EmitSoundToClient(i, "*/touchdown/blue_fumbled.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/blue_fumbled.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/blue_fumbled.mp3");
 					}
 					case 2:
 					{
-						EmitSoundToClient(i, "*/touchdown/blue_fumbled1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/blue_fumbled1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/blue_fumbled1.mp3");
 					}
 					case 3:
 					{
-						EmitSoundToClient(i, "*/touchdown/blue_fumbled2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/blue_fumbled2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/blue_fumbled2.mp3");
 					}
 					case 4:
 					{
-						EmitSoundToClient(i, "*/touchdown/blue_fumbled3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/blue_fumbled3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/blue_fumbled3.mp3");
 					}
 					case 5:
 					{
-						EmitSoundToClient(i, "*/touchdown/blue_fumbled4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/blue_fumbled4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/blue_fumbled4.mp3");
 					}
 				}
@@ -2924,7 +2982,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 			{
 				PrintHintText(i, "%T", "Time Is Up Hint", i);
 				CPrintToChat(i, "%T", "Time Is Up", i);
-				EmitSoundToClient(i, "*/touchdown/inter_timeover.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/inter_timeover.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 				
 				// Freeze player if time is up
 				if(GetClientTeam(i) != SPEC)	SetEntityMoveType(i, MOVETYPE_NONE);
@@ -2951,12 +3009,12 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead1.mp3");
 							}
 						}
@@ -2969,27 +3027,27 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores2.mp3");
 							}
 							case 4:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores3.mp3");
 							}
 							case 5:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores4.mp3");
 							}
 						}
@@ -3006,7 +3064,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 					if(score_t - score_ct == 1)
 					{
 						//ClientCommand(i, "play *touchdown/red_team_take_the_lead.mp3");
-						EmitSoundToClient(i, "*/touchdown/red_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/red_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/red_team_take_the_lead.mp3");
 					}
 					else
@@ -3016,17 +3074,17 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 							case 1:
 							{
 								//ClientCommand(i, "play *touchdown/red_team_scores.mp3");
-								EmitSoundToClient(i, "*/touchdown/red_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/red_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/red_team_scores.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/red_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/red_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/red_team_scores1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/red_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/red_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/red_team_scores2.mp3");
 							}
 						}
@@ -3046,12 +3104,12 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_take_the_lead1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_take_the_lead1.mp3");
 							}
 						}
@@ -3062,27 +3120,27 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 						{
 							case 1:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores2.mp3");
 							}
 							case 4:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores3.mp3");
 							}
 							case 5:
 							{
-								EmitSoundToClient(i, "*/touchdown/blue_team_scores4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/blue_team_scores4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/blue_team_scores4.mp3");
 							}
 						}
@@ -3098,7 +3156,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 					// CT lead 1 point
 					if(score_ct - score_t == 1)
 					{
-						EmitSoundToClient(i, "*/touchdown/red_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+						EmitSoundToClient(i, "*/touchdown/red_team_take_the_lead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 						EmitSoundToSpec(i, "*/touchdown/red_team_take_the_lead.mp3");
 					}
 					else
@@ -3108,17 +3166,17 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 							case 1:
 							{
 								//ClientCommand(i, "play *touchdown/red_team_scores.mp3");
-								EmitSoundToClient(i, "*/touchdown/red_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/red_team_scores.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/red_team_scores.mp3");
 							}
 							case 2:
 							{
-								EmitSoundToClient(i, "*/touchdown/red_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/red_team_scores1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/red_team_scores1.mp3");
 							}
 							case 3:
 							{
-								EmitSoundToClient(i, "*/touchdown/red_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+								EmitSoundToClient(i, "*/touchdown/red_team_scores2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 								EmitSoundToSpec(i, "*/touchdown/red_team_scores2.mp3");
 							}
 						}
@@ -3164,7 +3222,7 @@ public Action Event_PlayerHurt(Handle event, const char[] name, bool dontBroadca
 	if (damage > 50) 
 	{
 		//ClientCommand(attacker, "play *touchdown/critical.mp3");
-		EmitSoundToClient(attacker, "* /touchdown/critical.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+		EmitSoundToClient(attacker, "* /touchdown/critical.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 	}
 }
 */
@@ -3187,10 +3245,10 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 	}
 	
 	// Play death sound and dissolve effect
-	if(IsValidClient(client) && !IsFakeClient(client))
+	if(IsValidClient(client))
 	{	
 		// Sound
-		EmitSoundToClient(client, "*/touchdown/player_dead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+		EmitSoundToClient(client, "*/touchdown/player_dead.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 		EmitSoundToSpec(client, "*/touchdown/player_dead.mp3");
 		
 		// EU S4 doesn't really have "voice", only sound effect wtf.
@@ -3198,22 +3256,22 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		{
 			case 1:
 			{
-				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_blow.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_blow.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_blow.mp3");
 			}
 			case 2:
 			{
-				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_hard.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_hard.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_hard.mp3");
 			}
 			case 3:
 			{
-				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_normal.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_normal.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_normal.mp3");
 			}
 			case 4:
 			{
-				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_shock.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[client]);
+				EmitSoundToClient(client, "*/touchdown/_eu_voice_man_dead_shock.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 				EmitSoundToSpec(client, "*/touchdown/_eu_voice_man_dead_shock.mp3");
 			}
 		}
@@ -3223,49 +3281,49 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		CreateTimer(0.2, Dissolve, client);
 		
 		// Not suicide
-		if(client != attacker && IsValidClient(attacker) && !IsFakeClient(attacker))
+		if(client != attacker && IsValidClient(attacker))
 		{
 			// Play kill sound
 			switch(GetRandomInt(1,8))
 			{
 				case 1:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill1.mp3");
 				}
 				case 2:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill2.mp3");
 				}
 				case 3:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill3.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill3.mp3");
 				}
 				case 4:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill4.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill4.mp3");
 				}
 				case 5:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill5.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill5.mp3");
 				}
 				case 6:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill6.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill6.mp3");
 				}
 				case 7:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill7.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill7.mp3");
 				}
 				case 8:
 				{
-					EmitSoundToClient(attacker, "*/touchdown/kill8.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[attacker]);
+					EmitSoundToClient(attacker, "*/touchdown/kill8.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[attacker]);
 					EmitSoundToSpec(attacker, "*/touchdown/kill8.mp3");
 				}
 			}
@@ -3616,7 +3674,7 @@ void ResetBall()
 	{
 		if (IsValidClient(i) && !IsFakeClient(i)) 
 		{
-			EmitSoundToClient(i, "*/touchdown/_eu_ball_reset.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+			EmitSoundToClient(i, "*/touchdown/_eu_ball_reset.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 			
 			// Remove hint text
 			if(hAcquiredBallText[i] != INVALID_HANDLE)
@@ -3709,12 +3767,12 @@ public Action MatchEndSound(Handle tmr)
 					{
 						case 1:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match.mp3");
 						}
 						case 2:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match1.mp3");
 						}
 					}
@@ -3729,12 +3787,12 @@ public Action MatchEndSound(Handle tmr)
 					{
 						case 1:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_lost_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_lost_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match.mp3");
 						}
 						case 2:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_lost_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_lost_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match1.mp3");
 						}
 					}
@@ -3756,12 +3814,12 @@ public Action MatchEndSound(Handle tmr)
 					{
 						case 1:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match.mp3");
 						}
 						case 2:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match1.mp3");
 						}
 					}
@@ -3776,12 +3834,12 @@ public Action MatchEndSound(Handle tmr)
 					{
 						case 1:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_lost_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_lost_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match.mp3");
 						}
 						case 2:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_lost_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_lost_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_lost_the_match1.mp3");
 						}
 					}
@@ -3802,12 +3860,12 @@ public Action MatchEndSound(Handle tmr)
 					{
 						case 1:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match.mp3");
 						}
 						case 2:
 						{
-							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, _, _, g_fvol[i]);
+							EmitSoundToClient(i, "*/touchdown/you_have_won_the_match1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 							EmitSoundToSpec(i, "*/touchdown/you_have_won_the_match1.mp3");
 						}
 					}
@@ -4306,7 +4364,7 @@ public Action Event_SoundPlayed(int clients[64], int &numClients, char sample[PL
 		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && !IsFakeClient(i))
-				EmitSoundToClient(i, "*/touchdown/pokeball_bounce.mp3", entity, SNDCHAN_STATIC, _, _, g_fvol[i]);
+				EmitSoundToClient(i, "*/touchdown/pokeball_bounce.mp3", entity, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
 		}
 		
 		return Plugin_Handled;
@@ -4361,7 +4419,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 
 public Action FreezeClient(Handle tmr, any client)
 {
-	if (IsValidClient(client) && !IsFakeClient(client) && RoundEnd)
+	if (IsValidClient(client) && RoundEnd)
 		SetEntityMoveType(client, MOVETYPE_NONE);
 }
 
@@ -5171,11 +5229,11 @@ void EmitSoundToSpec(int client, char[] buffer)
 			
 			if (SpecMode == 4 && Target == client) // Firstperson
 			{
-				EmitSoundToClient(x, buffer, Target, SNDCHAN_STATIC, _, _, g_fvol[x]);
+				EmitSoundToClient(x, buffer, Target, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[x]);
 			}
 			else if (SpecMode == 5 && Target == client) // Thirdperson
 			{
-				EmitSoundToClient(x, buffer, x, SNDCHAN_STATIC, _, _, g_fvol[x]);
+				EmitSoundToClient(x, buffer, x, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[x]);
 			}
 		}
 	}
