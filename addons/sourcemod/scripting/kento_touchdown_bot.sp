@@ -33,9 +33,9 @@ Handle hBotMoveTo = INVALID_HANDLE;
 
 public void OnPluginStart()
 {
-	hGameConf = LoadGameConfigFile("touchdown_bot.games");
+	hGameConf = LoadGameConfigFile("touchdown.games");
 	if (hGameConf == INVALID_HANDLE)
-		SetFailState("Failed to found touchdown_bot.games game config.");
+		SetFailState("Failed to found touchdown.games game config.");
 	
 	StartPrepSDKCall(SDKCall_Player);
 	PrepSDKCall_SetFromConf(hGameConf, SDKConf_Signature, "MoveTo");
@@ -60,7 +60,7 @@ public Action Timer_BotMoveThink(Handle timer)
 	float ballOrigin[3];
 	if (!Touchdown_GetBallOrigin(ballOrigin))
 	{
-		ThrowError("Failed to found ball's Origin");
+		// ThrowError("Failed to found ball's Origin");
 		return Plugin_Continue;
 	}
 	

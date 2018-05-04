@@ -13,6 +13,7 @@ attack_down.mp3 - ???
 #include <kento_csgocolors>
 #include <clientprefs>
 #include <kento_touchdown>
+#include <SteamWorks>
 
 #pragma newdecls required
 
@@ -404,11 +405,14 @@ public int Native_GetBallOrigin(Handle plugin, int numParams)
 	
 	int index;
 	if (BallRef != INVALID_ENT_REFERENCE)
-		index = BallRef;
+		index = EntRefToEntIndex(BallRef);
 	else if (DropBallRef != INVALID_ENT_REFERENCE)
-		index = DropBallRef;
+		index = EntRefToEntIndex(DropBallRef);
 	else if (BallHolder > 0)
 		index = BallHolder;
+	else return 0;
+	
+	if (!IsValidEntity(index))return 0;
 	
 	float ballOrigin[3];
 	GetEntPropVector(index, Prop_Send, "m_vecOrigin", ballOrigin);
@@ -536,21 +540,7 @@ public void Restart_Handler(Handle convar, const char[] oldValue, const char[] n
 public void OnConfigsExecuted()
 {
 	LoadMapConfig(); 
-	
-	// Mysql, No need to do this if points and stats are disabled.
-	if(btd_stats_enabled || btd_points_enabled)
-	{
-		if (SQL_CheckConfig("touchdown"))
-		{
-			SQL_TConnect(OnSQLConnect, "touchdown");
-		}
-		else if (!SQL_CheckConfig("touchdown"))
-		{
-			SetFailState("Can't find an entry in your databases.cfg with the name \"touchdown\".");
-			return;
-		}
-	}
-	
+
 	ftd_respawn = td_respawn.FloatValue;
 	ftd_reset = td_reset.FloatValue;
 	itd_ballposition = td_ballposition.IntValue;
@@ -572,6 +562,19 @@ public void OnConfigsExecuted()
 	itd_points_start = td_points_start.IntValue;
 	itd_points_min = td_points_min.IntValue;
 	btd_points_min_enabled = td_points_min_enabled.BoolValue;
+	
+	if(btd_stats_enabled || btd_points_enabled)
+	{
+		if (SQL_CheckConfig("touchdown"))
+		{
+			SQL_TConnect(OnSQLConnect, "touchdown");
+		}
+		else if (!SQL_CheckConfig("touchdown"))
+		{
+			SetFailState("Can't find an entry in your databases.cfg with the name \"touchdown\".");
+			return;
+		}
+	}
 }
 
 void LoadMapConfig()
@@ -1630,8 +1633,11 @@ public void OnClientCookiesCached(int client)
 	if(StrEqual(buffer,"")){
 		g_fvol[client] = 0.8;
 	}
-	
-	if(btd_stats_enabled || btd_points_enabled)	LoadClientStats(client);
+}
+
+public void OnClientPostAdminCheck(int client)
+{
+	if((btd_stats_enabled || btd_points_enabled) && ddb != null)	LoadClientStats(client);
 }
 
 public Action RoundCountdown(Handle tmr)
@@ -4451,6 +4457,12 @@ public void OnSQLConnect(Handle owner, Handle hndl, const char[] error, any data
 		return;
 	}
 	
+	if (ddb != null)
+    {
+		delete hndl;
+		return;
+    }
+	
 	ddb = view_as<Database>(CloneHandle(hndl));
 	
 	CreateTable();
@@ -4502,7 +4514,9 @@ void LoadClientStats(int client)
 		return;
 	
 	char sCommunityID[32];
-	if (!GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID)))
+	SteamWorks_GetClientSteamID(client, sCommunityID, sizeof(sCommunityID));
+	
+	if(StrEqual("STEAM_ID_STOP_IGNORING_RETVALS", sCommunityID))
 	{
 		LogError("Auth failed for client index %d", client);
 		return;
@@ -4532,7 +4546,12 @@ public void SQL_LoadClientStats(Database db, DBResultSet results, const char[] e
 		if(!results.HasResults || !results.FetchRow())
 		{
 			char sCommunityID[32];
-			GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
+			SteamWorks_GetClientSteamID(client, sCommunityID, sizeof(sCommunityID));
+			if(StrEqual("STEAM_ID_STOP_IGNORING_RETVALS", sCommunityID))
+			{
+				LogError("Auth failed for client index %d", client);
+				return;
+			}
 			
 			char InsertQuery[512];
 			Format(InsertQuery, sizeof(InsertQuery), "INSERT INTO `%s` VALUES(NULL,'%s','%N','%d','0','0','0','0','0','0','0');", std_stats_table_name, sCommunityID, client, itd_points_start);
@@ -4568,7 +4587,8 @@ void SaveClientStats(int client)
 		return;
 	
 	char sCommunityID[32];
-	if (!GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID)))
+	SteamWorks_GetClientSteamID(client, sCommunityID, sizeof(sCommunityID));
+	if(StrEqual("STEAM_ID_STOP_IGNORING_RETVALS", sCommunityID))
 	{
 		LogError("Auth failed for client index %d", client);
 		return;
@@ -4649,7 +4669,12 @@ public void SQL_RankCallback(Database db, DBResultSet results, const char[] erro
 	iTotalPlayers = SQL_GetRowCount(results);
 	
 	char sCommunityID[32];
-	GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
+	SteamWorks_GetClientSteamID(client, sCommunityID, sizeof(sCommunityID));
+	if(StrEqual("STEAM_ID_STOP_IGNORING_RETVALS", sCommunityID))
+	{
+		LogError("Auth failed for client index %d", client);
+		return;
+	}
 	
 	// get player's rank
 	while(results.HasResults && results.FetchRow())
@@ -4693,7 +4718,12 @@ public void SQL_StatsCallback(Database db, DBResultSet results, const char[] err
 	iTotalPlayers = SQL_GetRowCount(results);
 	
 	char sCommunityID[32];
-	GetClientAuthId(client, AuthId_SteamID64, sCommunityID, sizeof(sCommunityID));
+	SteamWorks_GetClientSteamID(client, sCommunityID, sizeof(sCommunityID));
+	if(StrEqual("STEAM_ID_STOP_IGNORING_RETVALS", sCommunityID))
+	{
+		LogError("Auth failed for client index %d", client);
+		return;
+	}
 	
 	// get player's rank
 	while(results.HasResults && results.FetchRow())
