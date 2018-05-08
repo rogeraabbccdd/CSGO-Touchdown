@@ -385,6 +385,20 @@
 		"zho"			"{GREEN}[TouchDown] {PINK}你 {NORMAL}的排名是 {GREEN}{1}/{2} {NORMAL}, {PURPLE}{3} 點{NORMAL}, {LIGHTGREEN} {4} 擊殺{NORMAL},{RED} {5} 死亡{NORMAL},{ORANGE} {6} 助攻{NORMAL}, {BLUE}達陣 {7} 次{NORMAL}."
 	}
 	
+	"Edit Saved"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {LIGHTGREEN}Your settings has been saved."
+		"zho"			"{GREEN}[TouchDown] {LIGHTGREEN}已保存設定."
+	}
+	
+	"Remember to save edit"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {RED}Please remeber to save your settings."
+		"zho"			"{GREEN}[TouchDown] {RED}請記得保存設定."
+	}
+	
 //**********************************************************************************************************************
 	
 	"Acquired Ball"
@@ -877,5 +891,40 @@
 		"#format"		"{1:d},{2:s},{3:d}"
 		"en"			"#{1}. {2} - Pickup:{3}"
 		"zho"			"#{1}. {2} - 撿球數:{3}"
+	}
+	
+	"Edit Menu Title"
+	{
+		"#format"		""
+		"en"			"Touchdown Editor"
+		"zho"			"達陣模式編輯器"
+	}
+	
+	"Spawn T Flag"
+	{
+		"#format"		""
+		"en"			"Spawn T Flag"
+		"zho"			"Spawn T Flag"
+	}
+	
+	"Spawn CT Flag"
+	{
+		"#format"		""
+		"en"			"Spawn CT Flag"
+		"zho"			"Spawn CT Flag"
+	}
+	
+	"Spawn Ball"
+	{
+		"#format"		""
+		"en"			"Spawn Ball"
+		"zho"			"Spawn Ball"
+	}
+	
+	"Save Edit"
+	{
+		"#format"		""
+		"en"			"Save Settings"
+		"zho"			"保存設定"
 	}
 }	

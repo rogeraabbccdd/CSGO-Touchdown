@@ -22,17 +22,10 @@ attack_down.mp3 - ???
 #define TR 2
 #define CT 3
 
-enum Pos 
-{
-	Float:XPos, 
-	Float:YPos, 
-	Float:ZPos, 
-}
-
 // Model postion
-int BallSpawnPoint[Pos];
-int TGoalSpawnPoint[Pos];
-int CTGoalSpawnPoint[Pos];
+float BallSpawnPoint[3];
+float TGoalSpawnPoint[3];
+float CTGoalSpawnPoint[3];
 
 // Ball
 int BallModel;
@@ -46,6 +39,12 @@ int BallDroperTeam;
 // Particle
 int TGoalParticle;
 int CTGoalParticle;
+int TGoalModel;
+int CTGoalModel;
+int TPoleModel;
+int CTPoleModel;
+int TGroundModel;
+int CTGroundModel;
 
 int CTParticle;
 int TParticle;
@@ -60,6 +59,13 @@ int CTParticleRef = INVALID_ENT_REFERENCE;
 int TParticleRef = INVALID_ENT_REFERENCE;
 int BallParticleRef = INVALID_ENT_REFERENCE;
 int DropBallParticleRef = INVALID_ENT_REFERENCE;
+
+int TGoalRef = INVALID_ENT_REFERENCE;
+int TPoleRef = INVALID_ENT_REFERENCE;
+int TGroundRef = INVALID_ENT_REFERENCE;
+int CTGoalRef = INVALID_ENT_REFERENCE;
+int CTPoleRef = INVALID_ENT_REFERENCE;
+int CTGroundRef = INVALID_ENT_REFERENCE;
 
 bool RoundEnd;
 bool Switch;
@@ -237,8 +243,8 @@ int iTotalPlayers;
 public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
-	author = "Kento from Akami Studio",
-	version = "2.8",
+	author = "Kento",
+	version = "2.9",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -258,6 +264,9 @@ public void OnPluginStart()
 	// volume
 	RegConsoleCmd("sm_vol", Command_Vol, "Volume");
 	clientVolCookie = RegClientCookie("touchdown_vol", "Touchdown Client Volume", CookieAccess_Protected);
+	
+	// edit mode
+	RegAdminCmd("sm_td", Command_Edit, ADMFLAG_GENERIC, "Edit Touchdown Configs");
 
 	// Late spawn
 	AddCommandListener(Command_Join, "jointeam");
@@ -410,8 +419,8 @@ public int Native_GetBallOrigin(Handle plugin, int numParams)
 		index = EntRefToEntIndex(DropBallRef);
 	else if (BallHolder > 0)
 		index = BallHolder;
-	else return 0;
-	
+	else return 0;		
+				
 	if (!IsValidEntity(index))return 0;
 	
 	float ballOrigin[3];
@@ -452,15 +461,15 @@ public int Native_GetFlagOrigin(Handle plugin, int numParams)
 	float flagOrigin[3];
 	if (flagTeam == CS_TEAM_T)
 	{
-		flagOrigin[0] = TGoalSpawnPoint[XPos];
-		flagOrigin[1] = TGoalSpawnPoint[YPos];
-		flagOrigin[2] = TGoalSpawnPoint[ZPos];
+		flagOrigin[0] = TGoalSpawnPoint[0];
+		flagOrigin[1] = TGoalSpawnPoint[1];
+		flagOrigin[2] = TGoalSpawnPoint[2];
 	}
 	else if (flagTeam == CS_TEAM_CT)
 	{
-		flagOrigin[0] = CTGoalSpawnPoint[XPos];
-		flagOrigin[1] = CTGoalSpawnPoint[YPos];
-		flagOrigin[2] = CTGoalSpawnPoint[ZPos];
+		flagOrigin[0] = CTGoalSpawnPoint[0];
+		flagOrigin[1] = CTGoalSpawnPoint[1];
+		flagOrigin[2] = CTGoalSpawnPoint[2];
 	}
 	else
 		ThrowNativeError(1, "Received wrong flag of team. %d (expected : 2 or 3)",  flagTeam);
@@ -540,7 +549,7 @@ public void Restart_Handler(Handle convar, const char[] oldValue, const char[] n
 public void OnConfigsExecuted()
 {
 	LoadMapConfig(); 
-
+	
 	ftd_respawn = td_respawn.FloatValue;
 	ftd_reset = td_reset.FloatValue;
 	itd_ballposition = td_ballposition.IntValue;
@@ -564,16 +573,16 @@ public void OnConfigsExecuted()
 	btd_points_min_enabled = td_points_min_enabled.BoolValue;
 	
 	if(btd_stats_enabled || btd_points_enabled)
-	{
-		if (SQL_CheckConfig("touchdown"))
-		{
-			SQL_TConnect(OnSQLConnect, "touchdown");
-		}
-		else if (!SQL_CheckConfig("touchdown"))
-		{
-			SetFailState("Can't find an entry in your databases.cfg with the name \"touchdown\".");
-			return;
-		}
+	{		
+		if (SQL_CheckConfig("touchdown"))		
+		{		
+			SQL_TConnect(OnSQLConnect, "touchdown");		
+		}		
+		else if (!SQL_CheckConfig("touchdown"))		
+		{		
+			SetFailState("Can't find an entry in your databases.cfg with the name \"touchdown\".");		
+			return;		
+		}		
 	}
 }
 
@@ -610,29 +619,32 @@ void LoadMapConfig()
 		char ballDatas[3][32];
 		kv.GetString("ball", ball, sizeof(ball));
 		ExplodeString(ball, ";", ballDatas, 3, 32);
-		BallSpawnPoint[XPos] = StringToFloat(ballDatas[0]);
-		BallSpawnPoint[YPos] = StringToFloat(ballDatas[1]);
-		BallSpawnPoint[ZPos] = StringToFloat(ballDatas[2]);
+		BallSpawnPoint[0] = StringToFloat(ballDatas[0]);
+		BallSpawnPoint[1] = StringToFloat(ballDatas[1]);
+		BallSpawnPoint[2] = StringToFloat(ballDatas[2]);
 			
 		// T goal position
 		char tgoal[512];
 		char tgoalDatas[3][32];
 		kv.GetString("goal_t", tgoal, sizeof(tgoal));
 		ExplodeString(tgoal, ";", tgoalDatas, 3, 32);
-		TGoalSpawnPoint[XPos] = StringToFloat(tgoalDatas[0]);
-		TGoalSpawnPoint[YPos] = StringToFloat(tgoalDatas[1]);
-		TGoalSpawnPoint[ZPos] = StringToFloat(tgoalDatas[2]);
+		TGoalSpawnPoint[0] = StringToFloat(tgoalDatas[0]);
+		TGoalSpawnPoint[1] = StringToFloat(tgoalDatas[1]);
+		TGoalSpawnPoint[2] = StringToFloat(tgoalDatas[2]);
 			
 		// CT goal position
 		char ctgoal[512];
 		char ctgoalDatas[3][32];
 		kv.GetString("goal_ct", ctgoal, sizeof(ctgoal));
 		ExplodeString(ctgoal, ";", ctgoalDatas, 3, 32);
-		CTGoalSpawnPoint[XPos] = StringToFloat(ctgoalDatas[0]);
-		CTGoalSpawnPoint[YPos] = StringToFloat(ctgoalDatas[1]);
-		CTGoalSpawnPoint[ZPos] = StringToFloat(ctgoalDatas[2]);
+		CTGoalSpawnPoint[0] = StringToFloat(ctgoalDatas[0]);
+		CTGoalSpawnPoint[1] = StringToFloat(ctgoalDatas[1]);
+		CTGoalSpawnPoint[2] = StringToFloat(ctgoalDatas[2]);
 	}
-	else SetFailState("Fatal error: Unable to find current map settings in configuration file \"%s\"!", Configfile);
+	else 
+	{
+		LogError("Error: Unable to find current map settings in configuration file \"%s\"!", Configfile);
+	}
 	
 	kv.Rewind();
 	delete kv;
@@ -1357,8 +1369,9 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	}
 	
 	// Create ball model
-	SpawnBall();
-	SpawnGoal();
+	SpawnBall(BallSpawnPoint);
+	SpawnTGoal(TGoalSpawnPoint);
+	SpawnCTGoal(CTGoalSpawnPoint);
 	
 	// Reset ball holder
 	BallHolder = 0;
@@ -1635,9 +1648,9 @@ public void OnClientCookiesCached(int client)
 	}
 }
 
-public void OnClientPostAdminCheck(int client)
-{
-	if((btd_stats_enabled || btd_points_enabled) && ddb != null)	LoadClientStats(client);
+public void OnClientPostAdminCheck(int client)		
+{		
+	if((btd_stats_enabled || btd_points_enabled) && ddb != null)	LoadClientStats(client);		
 }
 
 public Action RoundCountdown(Handle tmr)
@@ -2010,113 +2023,168 @@ public Action NextRoundCountdown(Handle tmr)
 	}
 }
 
-void SpawnGoal()
+void SpawnCTGoal(float pos[3])
 {
+	int entity;
+	entity  = EntRefToEntIndex(CTGoalRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		AcceptEntityInput(entity, "Kill");
+		CTGoalRef = INVALID_ENT_REFERENCE;
+	}
+	entity  = EntRefToEntIndex(CTPoleRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		AcceptEntityInput(entity, "Kill");
+		CTPoleRef = INVALID_ENT_REFERENCE;
+	}
+	entity  = EntRefToEntIndex(CTGroundRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		AcceptEntityInput(entity, "Kill");
+		CTGroundRef = INVALID_ENT_REFERENCE;
+	}
+	
 	// Create CT goal model
 	// CT Flag
-	int ctflag = CreateEntityByName("prop_dynamic_override");
+	CTGoalModel = CreateEntityByName("prop_dynamic_override");
 		
-	SetEntityModel(ctflag, FlagModelPath);
-	SetEntPropString(ctflag, Prop_Data, "m_iName", "CTGoalFlag");
-	SetEntProp(ctflag, Prop_Send, "m_nBody", 0);
+	SetEntityModel(CTGoalModel, FlagModelPath);
+	SetEntPropString(CTGoalModel, Prop_Data, "m_iName", "CTGoalFlag");
+	SetEntProp(CTGoalModel, Prop_Send, "m_nBody", 0);
 
-	DispatchSpawn(ctflag);
+	DispatchSpawn(CTGoalModel);
+	
+	CTGoalRef = EntIndexToEntRef(CTGoalModel);
 	
 	SetVariantString("flag_idle1");
-	AcceptEntityInput(ctflag, "SetAnimation");
-	AcceptEntityInput(ctflag, "TurnOn");
+	AcceptEntityInput(CTGoalModel, "SetAnimation");
+	AcceptEntityInput(CTGoalModel, "TurnOn");
 	
-	float ctflagpos[3];
-	ctflagpos[0] = CTGoalSpawnPoint[XPos];
-	ctflagpos[1] = CTGoalSpawnPoint[YPos];
-	ctflagpos[2] = CTGoalSpawnPoint[ZPos];
+	float ctgoalpos[3];
+	ctgoalpos[0] = pos[0];
+	ctgoalpos[1] = pos[1];
+	ctgoalpos[2] = pos[2];
 
-	TeleportEntity(ctflag, ctflagpos, NULL_VECTOR, NULL_VECTOR);
+	TeleportEntity(CTGoalModel, ctgoalpos, NULL_VECTOR, NULL_VECTOR);
 	
 	// CT Pole
-	int ctpole = CreateEntityByName("prop_dynamic_override");
-	SetEntityModel(ctpole, PoleModelPath);
-	SetEntPropString(ctpole, Prop_Data, "m_iName", "CTGoalPole");
-	SetEntProp(ctpole, Prop_Send, "m_usSolidFlags", 12);
-	SetEntProp(ctpole, Prop_Data, "m_nSolidType", 6);
-	SetEntProp(ctpole, Prop_Send, "m_CollisionGroup", 1);
+	CTPoleModel = CreateEntityByName("prop_dynamic_override");
+	SetEntityModel(CTPoleModel, PoleModelPath);
+	SetEntPropString(CTPoleModel, Prop_Data, "m_iName", "CTGoalPole");
+	SetEntProp(CTPoleModel, Prop_Send, "m_usSolidFlags", 12);
+	SetEntProp(CTPoleModel, Prop_Data, "m_nSolidType", 6);
+	SetEntProp(CTPoleModel, Prop_Send, "m_CollisionGroup", 1);
 	
 	float ctpolepos[3];
-	ctpolepos[0] = CTGoalSpawnPoint[XPos];
-	ctpolepos[1] = CTGoalSpawnPoint[YPos];
-	ctpolepos[2] = CTGoalSpawnPoint[ZPos] + 40;
+	ctpolepos[0] = pos[0];
+	ctpolepos[1] = pos[1];
+	ctpolepos[2] = pos[2] + 40;
+	
+	CTPoleRef = EntIndexToEntRef(CTPoleModel);
 
-	TeleportEntity(ctpole, ctpolepos, NULL_VECTOR, NULL_VECTOR);	
+	TeleportEntity(CTPoleModel, ctpolepos, NULL_VECTOR, NULL_VECTOR);	
 
-	SDKHook(ctpole, SDKHook_StartTouch, OnStartTouch);
+	SDKHook(CTPoleModel, SDKHook_StartTouch, OnStartTouch);
 	
 	// CT Ground
-	int ctground = CreateEntityByName("prop_dynamic_override");
-	SetEntityModel(ctground, GroundModelPath);
-	SetEntPropString(ctground, Prop_Data, "m_iName", "CTGoalGround");
-	SetEntProp(ctground, Prop_Send, "m_usSolidFlags", 12);
-	SetEntProp(ctground, Prop_Data, "m_nSolidType", 6);
-	SetEntProp(ctground, Prop_Send, "m_CollisionGroup", 1);
+	CTGroundModel = CreateEntityByName("prop_dynamic_override");
+	SetEntityModel(CTGroundModel, GroundModelPath);
+	SetEntPropString(CTGroundModel, Prop_Data, "m_iName", "CTGoalGround");
+	SetEntProp(CTGroundModel, Prop_Send, "m_usSolidFlags", 12);
+	SetEntProp(CTGroundModel, Prop_Data, "m_nSolidType", 6);
+	SetEntProp(CTGroundModel, Prop_Send, "m_CollisionGroup", 1);
 	
 	float ctgroundpos[3];
-	ctgroundpos[0] = CTGoalSpawnPoint[XPos];
-	ctgroundpos[1] = CTGoalSpawnPoint[YPos];
-	ctgroundpos[2] = CTGoalSpawnPoint[ZPos];
+	ctgroundpos[0] = pos[0];
+	ctgroundpos[1] = pos[1];
+	ctgroundpos[2] = pos[2];
+	
+	CTGroundRef = EntIndexToEntRef(CTGroundModel);
 
-	TeleportEntity(ctground, ctgroundpos, NULL_VECTOR, NULL_VECTOR);	
+	TeleportEntity(CTGroundModel, ctgroundpos, NULL_VECTOR, NULL_VECTOR);	
+}
+
+void SpawnTGoal(float pos[3])
+{
+	int entity;
+	entity  = EntRefToEntIndex(TGoalRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		AcceptEntityInput(entity, "Kill");
+		TGoalRef = INVALID_ENT_REFERENCE;
+	}
+	entity  = EntRefToEntIndex(TPoleRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		AcceptEntityInput(entity, "Kill");
+		TPoleRef = INVALID_ENT_REFERENCE;
+	}
+	entity  = EntRefToEntIndex(TGroundRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		AcceptEntityInput(entity, "Kill");
+		TGroundRef = INVALID_ENT_REFERENCE;
+	}
 	
 	// Create T goal model
 	// T Flag
-	int tflag = CreateEntityByName("prop_dynamic_override");
+	TGoalModel = CreateEntityByName("prop_dynamic_override");
 		
-	SetEntityModel(tflag, FlagModelPath);
-	SetEntPropString(tflag, Prop_Data, "m_iName", "TGoalFlag");
-	SetEntProp(tflag, Prop_Send, "m_nBody", 3);
+	SetEntityModel(TGoalModel, FlagModelPath);
+	SetEntPropString(TGoalModel, Prop_Data, "m_iName", "TGoalFlag");
+	SetEntProp(TGoalModel, Prop_Send, "m_nBody", 3);
 
-	DispatchSpawn(tflag);
+	DispatchSpawn(TGoalModel);
+	
+	TGoalRef = EntIndexToEntRef(TGoalModel);
 	
 	SetVariantString("flag_idle1");
-	AcceptEntityInput(tflag, "SetAnimation");
-	AcceptEntityInput(tflag, "TurnOn");
+	AcceptEntityInput(TGoalModel, "SetAnimation");
+	AcceptEntityInput(TGoalModel, "TurnOn");
 	
-	float tflagpos[3];
-	tflagpos[0] = TGoalSpawnPoint[XPos];
-	tflagpos[1] = TGoalSpawnPoint[YPos];
-	tflagpos[2] = TGoalSpawnPoint[ZPos];
+	float TGoalModelpos[3];
+	TGoalModelpos[0] = pos[0];
+	TGoalModelpos[1] = pos[1];
+	TGoalModelpos[2] = pos[2];
 
-	TeleportEntity(tflag, tflagpos, NULL_VECTOR, NULL_VECTOR);
+	TeleportEntity(TGoalModel, TGoalModelpos, NULL_VECTOR, NULL_VECTOR);
 	
 	// T Pole
-	int tpole = CreateEntityByName("prop_dynamic_override");
-	SetEntityModel(tpole, PoleModelPath);
-	SetEntPropString(tpole, Prop_Data, "m_iName", "TGoalPole");
-	SetEntProp(tpole, Prop_Send, "m_usSolidFlags", 12);
-	SetEntProp(tpole, Prop_Data, "m_nSolidType", 6);
-	SetEntProp(tpole, Prop_Send, "m_CollisionGroup", 1);
+	TPoleModel = CreateEntityByName("prop_dynamic_override");
+	SetEntityModel(TPoleModel, PoleModelPath);
+	SetEntPropString(TPoleModel, Prop_Data, "m_iName", "TGoalPole");
+	SetEntProp(TPoleModel, Prop_Send, "m_usSolidFlags", 12);
+	SetEntProp(TPoleModel, Prop_Data, "m_nSolidType", 6);
+	SetEntProp(TPoleModel, Prop_Send, "m_CollisionGroup", 1);
 	
 	float tpolepos[3];
-	tpolepos[0] = TGoalSpawnPoint[XPos];
-	tpolepos[1] = TGoalSpawnPoint[YPos];
-	tpolepos[2] = TGoalSpawnPoint[ZPos] + 40;
-
-	TeleportEntity(tpole, tpolepos, NULL_VECTOR, NULL_VECTOR);	
+	tpolepos[0] = pos[0];
+	tpolepos[1] = pos[1];
+	tpolepos[2] = pos[2] + 40;
 	
-	SDKHook(tpole, SDKHook_StartTouch, OnStartTouch);
+	TPoleRef = EntIndexToEntRef(TPoleModel);
+
+	TeleportEntity(TPoleModel, tpolepos, NULL_VECTOR, NULL_VECTOR);	
+	
+	SDKHook(TPoleModel, SDKHook_StartTouch, OnStartTouch);
 	
 	// T Ground
-	int tground = CreateEntityByName("prop_dynamic_override");
-	SetEntityModel(tground, GroundModelPath);
-	SetEntPropString(tground, Prop_Data, "m_iName", "TGoalGround");
-	SetEntProp(tground, Prop_Send, "m_usSolidFlags", 12);
-	SetEntProp(tground, Prop_Data, "m_nSolidType", 6);
-	SetEntProp(tground, Prop_Send, "m_CollisionGroup", 1);
+	TGroundModel = CreateEntityByName("prop_dynamic_override");
+	SetEntityModel(TGroundModel, GroundModelPath);
+	SetEntPropString(TGroundModel, Prop_Data, "m_iName", "TGoalGround");
+	SetEntProp(TGroundModel, Prop_Send, "m_usSolidFlags", 12);
+	SetEntProp(TGroundModel, Prop_Data, "m_nSolidType", 6);
+	SetEntProp(TGroundModel, Prop_Send, "m_CollisionGroup", 1);
 
 	float tgroundpos[3];
-	tgroundpos[0] = TGoalSpawnPoint[XPos];
-	tgroundpos[1] = TGoalSpawnPoint[YPos];
-	tgroundpos[2] = TGoalSpawnPoint[ZPos];
+	tgroundpos[0] = pos[0];
+	tgroundpos[1] = pos[1];
+	tgroundpos[2] = pos[2];
+	
+	TGroundRef = EntIndexToEntRef(TGroundModel);
 
-	TeleportEntity(tground, tgroundpos, NULL_VECTOR, NULL_VECTOR);
+	TeleportEntity(TGroundModel, tgroundpos, NULL_VECTOR, NULL_VECTOR);
 }
 
 public void OnStartTouch(int ent, int client)
@@ -2400,12 +2468,12 @@ void CreateCTGoalParticle()
 	DispatchKeyValue(CTGoalParticle, "effect_name", GoalParticleEffect);
 	DispatchSpawn(CTGoalParticle);
 		
-	float ctflagpos[3];
-	ctflagpos[0] = CTGoalSpawnPoint[XPos];
-	ctflagpos[1] = CTGoalSpawnPoint[YPos];
-	ctflagpos[2] = CTGoalSpawnPoint[ZPos];
+	float CTGoalModelpos[3];
+	CTGoalModelpos[0] = CTGoalSpawnPoint[0];
+	CTGoalModelpos[1] = CTGoalSpawnPoint[1];
+	CTGoalModelpos[2] = CTGoalSpawnPoint[2];
 
-	TeleportEntity(CTGoalParticle, ctflagpos, NULL_VECTOR, NULL_VECTOR);
+	TeleportEntity(CTGoalParticle, CTGoalModelpos, NULL_VECTOR, NULL_VECTOR);
 	SetVariantString("!activator");	
 	ActivateEntity(CTGoalParticle);
 	AcceptEntityInput(CTGoalParticle, "Start");
@@ -2419,12 +2487,12 @@ void CreateTGoalParticle()
 	DispatchKeyValue(TGoalParticle, "effect_name", GoalParticleEffect);
 	DispatchSpawn(TGoalParticle);
 		
-	float tflagpos[3];
-	tflagpos[0] = TGoalSpawnPoint[XPos];
-	tflagpos[1] = TGoalSpawnPoint[YPos];
-	tflagpos[2] = TGoalSpawnPoint[ZPos];
+	float TGoalModelpos[3];
+	TGoalModelpos[0] = TGoalSpawnPoint[0];
+	TGoalModelpos[1] = TGoalSpawnPoint[1];
+	TGoalModelpos[2] = TGoalSpawnPoint[2];
 
-	TeleportEntity(TGoalParticle, tflagpos, NULL_VECTOR, NULL_VECTOR);
+	TeleportEntity(TGoalParticle, TGoalModelpos, NULL_VECTOR, NULL_VECTOR);
 
 	SetVariantString("!activator");	
 	ActivateEntity(TGoalParticle);
@@ -3610,11 +3678,11 @@ public Action Respawn_Player(Handle tmr, any client)
 
 public Action ResetBallTimer(Handle tmr, any client)
 {
-	ResetBall();
+	ResetBall(true);
 	hResetBallTimer = INVALID_HANDLE;
 }
 
-void SpawnBall()
+void SpawnBall(float pos[3])
 {
 	// Create ball model
 	BallModel = CreateEntityByName("prop_dynamic_override");
@@ -3632,9 +3700,9 @@ void SpawnBall()
 	DispatchSpawn(BallModel);
 	
 	float ballpos[3];
-	ballpos[0] = BallSpawnPoint[XPos];
-	ballpos[1] = BallSpawnPoint[YPos];
-	ballpos[2] = BallSpawnPoint[ZPos];
+	ballpos[0] = pos[0];
+	ballpos[1] = pos[1];
+	ballpos[2] = pos[2];
 
 	TeleportEntity(BallModel, ballpos, NULL_VECTOR, NULL_VECTOR);
 	
@@ -3659,7 +3727,7 @@ void SpawnBall()
 	SDKHookEx(BallParticle, SDKHook_SetTransmit, Hook_SetTransmit);
 }
 
-void ResetBall()
+void ResetBall(bool spawn)
 {
 	// Remove all ball
 	RemoveBall();
@@ -3673,7 +3741,7 @@ void ResetBall()
 	Touchdowner = 0;
 	
 	// Spawn Ball
-	SpawnBall();
+	if(spawn)	SpawnBall(BallSpawnPoint);
 	
 	// Play reset sound
 	for (int i = 1; i <= MaxClients; i++)
@@ -3720,7 +3788,7 @@ public Action Command_ResetBall(int client,int args)
 		KillTimer(hResetBallTimer);
 		hResetBallTimer = INVALID_HANDLE;
 	}
-	ResetBall();
+	ResetBall(true);
 	
 	return Plugin_Handled;
 }
@@ -4457,12 +4525,12 @@ public void OnSQLConnect(Handle owner, Handle hndl, const char[] error, any data
 		return;
 	}
 	
-	if (ddb != null)
-    {
-		delete hndl;
-		return;
-    }
-	
+	if (ddb != null)		
+	{	
+		delete hndl;		
+		return;		
+	}
+
 	ddb = view_as<Database>(CloneHandle(hndl));
 	
 	CreateTable();
@@ -4515,7 +4583,6 @@ void LoadClientStats(int client)
 	
 	char sCommunityID[32];
 	SteamWorks_GetClientSteamID(client, sCommunityID, sizeof(sCommunityID));
-	
 	if(StrEqual("STEAM_ID_STOP_IGNORING_RETVALS", sCommunityID))
 	{
 		LogError("Auth failed for client index %d", client);
@@ -5268,3 +5335,149 @@ void EmitSoundToSpec(int client, char[] buffer)
 		}
 	}
 }
+
+public Action Command_Edit(int client, int args)
+{
+	ShowEditMenu(client);
+	return Plugin_Handled;
+}
+
+void ShowEditMenu(int client)
+{
+	Menu menu = new Menu(EditMenu_Handler);
+	
+	char title[64], temp[255];
+	Format(title, sizeof(title), "%T \n \n", "Edit Menu Title", client, client);
+	menu.SetTitle(title);
+	
+	Format(temp, sizeof(temp), "%T", "Spawn T Flag", client);
+	menu.AddItem("spawnTGoalModel", temp);
+	
+	Format(temp, sizeof(temp), "%T", "Spawn CT Flag", client);
+	menu.AddItem("spawnCTGoalModel", temp);
+	
+	Format(temp, sizeof(temp), "%T", "Spawn Ball", client);
+	menu.AddItem("spawnball", temp);
+	
+	Format(temp, sizeof(temp), "%T", "Save Edit", client);
+	menu.AddItem("saveedit", temp);
+	
+	menu.ExitButton = true;
+	menu.Display(client, 30);
+}
+
+public int EditMenu_Handler(Menu menu, MenuAction action, int client,int param)
+{
+	if (action == MenuAction_Select)
+	{
+		char info[20];
+		menu.GetItem(param, info, sizeof(info));
+		
+		float pos[3];
+		float clientEye[3], clientAngle[3];
+		GetClientEyePosition(client, clientEye);
+		GetClientEyeAngles(client, clientAngle);
+			
+		TR_TraceRayFilter(clientEye, clientAngle, MASK_SOLID, RayType_Infinite, HitSelf, client);
+		
+		if (TR_DidHit(INVALID_HANDLE))	TR_GetEndPosition(pos);
+
+		if (StrEqual(info, "spawnTGoalModel"))
+		{
+			SpawnTGoal(pos);
+			TGoalSpawnPoint = pos;
+			CPrintToChat(client, "%T", "Remember to save edit", client);
+		}
+		
+		else if (StrEqual(info, "spawnCTGoalModel"))
+		{
+			SpawnCTGoal(pos);	
+			CTGoalSpawnPoint = pos;
+			CPrintToChat(client, "%T", "Remember to save edit", client);
+		}
+		
+		else if (StrEqual(info, "spawnball"))
+		{
+			ResetBall(false);
+			SpawnBall(pos);	
+			BallSpawnPoint = pos;
+			CPrintToChat(client, "%T", "Remember to save edit", client);
+		}
+		
+		else if (StrEqual(info, "saveedit"))	SaveConfig(client);
+		
+		ShowEditMenu(client);
+	}
+}
+
+public bool HitSelf(int entity, int contentsMask, any data)
+{
+	if (entity == data)	return false;
+	return true;
+}
+
+void SaveConfig(int client)
+{
+	char Configfile[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, Configfile, sizeof(Configfile), "configs/kento_touchdown.cfg");
+	
+	if (!FileExists(Configfile))
+	{
+		SetFailState("Fatal error: Unable to open configuration file \"%s\"!", Configfile);
+	}
+	
+	KeyValues kv = CreateKeyValues("TouchDown");
+	kv.ImportFromFile(Configfile);
+	
+	char sMapName[128], sMapName2[128];
+	GetCurrentMap(sMapName, sizeof(sMapName));
+	
+	// Does current map string contains a "workshop" prefix at a start?
+	if (strncmp(sMapName, "workshop", 8) == 0)
+	{
+		Format(sMapName2, sizeof(sMapName2), sMapName[19]);
+	}
+	else
+	{
+		Format(sMapName2, sizeof(sMapName2), sMapName);
+	}
+	
+	kv.JumpToKey(sMapName2, true);
+	
+	float pos[3];
+	char spos[512];
+	
+	int entity;
+	entity = EntRefToEntIndex(TGoalRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		GetEntPropVector(entity, Prop_Send, "m_vecOrigin", pos);
+		Format(spos, sizeof(spos), "%f;%f;%f", pos[0], pos[1], pos[2]);
+		kv.SetString("goal_t", spos);
+	}
+
+	entity = EntRefToEntIndex(CTGoalRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		GetEntPropVector(entity, Prop_Send, "m_vecOrigin", pos);
+		Format(spos, sizeof(spos), "%f;%f;%f", pos[0], pos[1], pos[2]);
+		kv.SetString("goal_ct", spos);
+	}
+	
+	entity = EntRefToEntIndex(BallRef);
+	if(entity != INVALID_ENT_REFERENCE && IsValidEdict(entity) && entity != 0)
+	{
+		GetEntPropVector(entity, Prop_Send, "m_vecOrigin", pos);
+		Format(spos, sizeof(spos), "%f;%f;%f", pos[0], pos[1], pos[2]);
+		kv.SetString("ball", spos);
+	}
+	
+	//Put it inside config file
+	kv.Rewind();
+	kv.ExportToFile(Configfile);
+	
+	CPrintToChat(client, "%T", "Edit Saved", client);
+	
+	delete kv;
+}
+
