@@ -117,7 +117,6 @@ forward Action Touchdown_OnPlayerKillBall(int ballholder, int attacker);
 /**
  * Called when the ball reset.
  *
- * @param client     Player index.
  * @return          No return
  */
 forward Action Touchdown_OnBallReset();
