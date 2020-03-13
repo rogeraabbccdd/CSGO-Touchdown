@@ -250,7 +250,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento",
-	version = "2.10",
+	version = "2.11",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -385,13 +385,8 @@ public void OnPluginStart()
 		if(IsValidClient(i) && !IsFakeClient(i))	OnClientCookiesCached(i);
 	}
 	*/
-
-	RegConsoleCmd("sm_tdtest", TEST)
 }
 
-public Action TEST (int client, int args) {
-	PrintToChat(client, "%d, %d, %d, %d", IsPlayerAlive(client), IsValidEntity(client), GetEntityMoveType(client), GetClientTeam(client));
-}
 // Create natives and forwards
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -546,8 +541,8 @@ public int Native_GetClientDropball(Handle plugin, int numParams)
 	
 public void Restart_Handler(Handle convar, const char[] oldValue, const char[] newValue)
 {
-		if ((convar == mp_restartgame))
-		{
+	if ((convar == mp_restartgame))
+	{
 		ResetTimer();
 		RoundEnd = false;
 		BallHolder = 0;
@@ -560,7 +555,7 @@ public void Restart_Handler(Handle convar, const char[] oldValue, const char[] n
 		Touchdowner = 0;
 		g_spawned_t = false;
 		g_spawned_ct = false;
-		}
+	}
 }
 
 public void OnConfigsExecuted()
@@ -1416,26 +1411,28 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	// Play Round Start Sound
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (IsValidClient(i) && !IsFakeClient(i)) 
+		if (IsValidClient(i)) 
 		{
-			CreateTimer(1.0, StartGameTimer);
-			
-			// Unfreeze players
-			if (GetClientTeam(i) == CT || GetClientTeam(i) == TR) SetEntityMoveType(i, MOVETYPE_WALK);
-			
-			switch(GetRandomInt(1, 2))
+			if(!IsFakeClient(i))
 			{
-				case 1:
+				CreateTimer(1.0, StartGameTimer);
+				switch(GetRandomInt(1, 2))
 				{
-					//ClientCommand(i, "play *touchdown/ready1.mp3");
-					EmitSoundToClient(i, "*/touchdown/ready1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
-				}
-				case 2:
-				{
-					//ClientCommand(i, "play *touchdown/ready2.mp3");
-					EmitSoundToClient(i, "*/touchdown/ready2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
+					case 1:
+					{
+						//ClientCommand(i, "play *touchdown/ready1.mp3");
+						EmitSoundToClient(i, "*/touchdown/ready1.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
+					}
+					case 2:
+					{
+						//ClientCommand(i, "play *touchdown/ready2.mp3");
+						EmitSoundToClient(i, "*/touchdown/ready2.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
+					}
 				}
 			}
+
+			// Unfreeze players
+			if (GetClientTeam(i) == CT || GetClientTeam(i) == TR) SetEntityMoveType(i, MOVETYPE_WALK);
 		}
 	}
 		
@@ -3056,19 +3053,22 @@ void GoalBall(int client)
 	
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (IsValidClient(i) && !IsFakeClient(i)) 
+		if (IsValidClient(i)) 
 		{
-			if(hAcquiredBallText[i] != INVALID_HANDLE)
+			if(!IsFakeClient(client)) 
 			{
-				KillTimer(hAcquiredBallText[i]);
+				if(hAcquiredBallText[i] != INVALID_HANDLE)
+				{
+					KillTimer(hAcquiredBallText[i]);
+				}
+				hAcquiredBallText[i] = INVALID_HANDLE;
+		
+				if(hRAcquiredBallText[i] != INVALID_HANDLE)
+				{
+					KillTimer(hRAcquiredBallText[i]);
+				}
+				hRAcquiredBallText[i] = INVALID_HANDLE;
 			}
-			hAcquiredBallText[i] = INVALID_HANDLE;
-	
-			if(hRAcquiredBallText[i] != INVALID_HANDLE)
-			{
-				KillTimer(hRAcquiredBallText[i]);
-			}
-			hRAcquiredBallText[i] = INVALID_HANDLE;
 			
 			// Freeze all player except player who touchdown like S4
 			if(GetClientTeam(i) != SPEC && i != client)
@@ -3169,12 +3169,15 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if (IsValidClient(i) && !IsFakeClient(i)) 
+			if (IsValidClient(i)) 
 			{
-				PrintHintText(i, "%T", "Time Is Up Hint", i);
-				CPrintToChat(i, "%T", "Time Is Up", i);
-				EmitSoundToClient(i, "*/touchdown/inter_timeover.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
-				
+				if(!IsFakeClient(i))
+				{
+					PrintHintText(i, "%T", "Time Is Up Hint", i);
+					CPrintToChat(i, "%T", "Time Is Up", i);
+					EmitSoundToClient(i, "*/touchdown/inter_timeover.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[i]);
+				}
+
 				// Freeze player if time is up
 				if(GetClientTeam(i) != SPEC)	SetEntityMoveType(i, MOVETYPE_NONE);
 			}
@@ -4605,7 +4608,7 @@ public Action OnWeaponDrop(int client, int weapon)
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
 {
-	if (!IsValidClient(client) || IsFakeClient(client))	return Plugin_Continue;
+	if (!IsValidClient(client))	return Plugin_Continue;
 
 	// https://forums.alliedmods.net/showpost.php?p=2514392&postcount=2
 	if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK)
