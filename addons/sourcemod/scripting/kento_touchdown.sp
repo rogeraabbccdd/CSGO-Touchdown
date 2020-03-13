@@ -195,10 +195,10 @@ int score_t2;
 // From boomix's capture the flag
 char PrimaryWeapon[18][50] = 
 {
-    "weapon_m4a1", "weapon_m4a1_silencer", "weapon_ak47", "weapon_aug", "weapon_bizon", "weapon_famas", 
-    "weapon_galilar", "weapon_mac10",
-    "weapon_mag7", "weapon_mp7", "weapon_mp9", "weapon_nova", "weapon_p90", "weapon_sawedoff",
-    "weapon_sg556", "weapon_ssg08", "weapon_ump45", "weapon_xm1014"
+	"weapon_m4a1", "weapon_m4a1_silencer", "weapon_ak47", "weapon_aug", "weapon_bizon", "weapon_famas", 
+	"weapon_galilar", "weapon_mac10",
+	"weapon_mag7", "weapon_mp7", "weapon_mp9", "weapon_nova", "weapon_p90", "weapon_sawedoff",
+	"weapon_sg556", "weapon_ssg08", "weapon_ump45", "weapon_xm1014"
 };
 
 char SecondaryWeapon[10][50] = 
@@ -220,21 +220,21 @@ Handle OnBallReset;
 Handle OnPlayerGetBall;
 Handle OnPlayerTouchDown;
 Handle OnPlayerKillBall;
-	
+
 // Stats
-enum STATS
+enum struct STATS
 {
-	POINTS,
-	KILLS,
-	DEATHS,
-	ASSISTS,
-	TOUCHDOWN,
-	GETBALL,
-	DROPBALL,
-	KILLBALL,
+	int POINTS;
+	int KILLS;
+	int DEATHS;
+	int ASSISTS;
+	int TOUCHDOWN;
+	int GETBALL;
+	int DROPBALL;
+	int KILLBALL;
 }
 
-int Stats[MAXPLAYERS + 1][STATS];
+STATS Stats[MAXPLAYERS + 1];
 
 // query
 Database ddb = null;
@@ -482,55 +482,55 @@ public int Native_GetFlagOrigin(Handle plugin, int numParams)
 public int Native_GetClientPoints(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][POINTS];
+	return Stats[client].POINTS;
 }
 
 public int Native_GetClientKills(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][KILLS];
+	return Stats[client].KILLS;
 }
 
 public int Native_GetClientDeaths(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][DEATHS];
+	return Stats[client].DEATHS;
 }
 
 public int Native_GetClientAssists(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][ASSISTS];
+	return Stats[client].ASSISTS;
 }
 
 public int Native_GetClientTouchdown(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][TOUCHDOWN];
+	return Stats[client].TOUCHDOWN;
 }
 
 public int Native_GetClientKillball(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][KILLBALL];
+	return Stats[client].KILLBALL;
 }
 
 public int Native_GetClientGetball(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][GETBALL];
+	return Stats[client].GETBALL;
 }
 
 public int Native_GetClientDropball(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1)
-	return Stats[client][DROPBALL];
+	return Stats[client].DROPBALL;
 }
 	
 public void Restart_Handler(Handle convar, const char[] oldValue, const char[] newValue)
 {
-    if ((convar == mp_restartgame))
-    {
+		if ((convar == mp_restartgame))
+		{
 		ResetTimer();
 		RoundEnd = false;
 		BallHolder = 0;
@@ -543,7 +543,7 @@ public void Restart_Handler(Handle convar, const char[] oldValue, const char[] n
 		Touchdowner = 0;
 		g_spawned_t = false;
 		g_spawned_ct = false;
-    }
+		}
 }
 
 public void OnConfigsExecuted()
@@ -950,36 +950,36 @@ stock void FakePrecacheSound(const char[] szPath)
 // https://forums.alliedmods.net/showpost.php?p=2471747&postcount=4
 stock void PrecacheEffect(const char[] sEffectName)
 {
-    static int table = INVALID_STRING_TABLE;
-    
-    if (table == INVALID_STRING_TABLE)
-    {
-        table = FindStringTable("EffectDispatch");
-    }
-    bool save = LockStringTables(false);
-    AddToStringTable(table, sEffectName);
-    LockStringTables(save);
+		static int table = INVALID_STRING_TABLE;
+		
+		if (table == INVALID_STRING_TABLE)
+		{
+				table = FindStringTable("EffectDispatch");
+		}
+		bool save = LockStringTables(false);
+		AddToStringTable(table, sEffectName);
+		LockStringTables(save);
 }
 
 stock void PrecacheParticleEffect(const char[] sEffectName)
 {
-    static int table = INVALID_STRING_TABLE;
-    
-    if (table == INVALID_STRING_TABLE)
-    {
-        table = FindStringTable("ParticleEffectNames");
-    }
-    bool save = LockStringTables(false);
-    AddToStringTable(table, sEffectName);
-    LockStringTables(save);
+		static int table = INVALID_STRING_TABLE;
+		
+		if (table == INVALID_STRING_TABLE)
+		{
+				table = FindStringTable("ParticleEffectNames");
+		}
+		bool save = LockStringTables(false);
+		AddToStringTable(table, sEffectName);
+		LockStringTables(save);
 }  
 
 public void OnEntityCreated(int entity, const char[] classname)
 {
-    if(StrEqual(classname, "game_player_equip"))
-    {
-        AcceptEntityInput(entity, "Kill");
-    }
+		if(StrEqual(classname, "game_player_equip"))
+		{
+				AcceptEntityInput(entity, "Kill");
+		}
 }  
 
 // Remove C4
@@ -1428,18 +1428,18 @@ public Action PlayBGMTimer(Handle tmr, any client)
 			
 			hBGMTimer[i] = CreateTimer(0.5, BGMTimer, i);
 		}
-   	}
+	}
 }
-   	
+
 public Action StartGameTimer(Handle tmr, any client)
 {
 	for (int i = 1; i <= MaxClients; i++) 
 	{ 
-        if(IsValidClient(i) && !IsFakeClient(i))
-        { 
-           PrintHintText(i, "%T", "Start Game", i);
-        } 
-    } 
+				if(IsValidClient(i) && !IsFakeClient(i))
+				{ 
+					 PrintHintText(i, "%T", "Start Game", i);
+				} 
+		} 
 }
 
 public Action BGMTimer(Handle tmr, any client)
@@ -1658,7 +1658,7 @@ public Action RoundCountdown(Handle tmr)
 	--roundtime;
 	
 	//3 mins, 1 mins, 30 sec, 10...1 left
-    
+		
 	if (roundtime == 180)
 	{
 		for (int i = 1; i <= MaxClients; i++)
@@ -1911,8 +1911,8 @@ void ResetTimer()
 public Action NextRoundCountdown(Handle tmr)
 {
 	--Nextroundtime;
-    
-    // We don't need this in Half time and warmup
+		
+		// We don't need this in Half time and warmup
 	if (Switch || bWarmUp)
 	{
 		if(hNextRoundCountdown != INVALID_HANDLE)
@@ -2545,14 +2545,14 @@ void GetBall(int client)
 	// Stats
 	if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 	{
-		Stats[client][GETBALL]++;
+		Stats[client].GETBALL++;
 		
 		if(btd_points_enabled)
 		{
-			Stats[client][POINTS] += itd_points_pickball;
+			Stats[client].POINTS += itd_points_pickball;
 		
 			if(itd_points_pickball != 0)
-				CPrintToChat(client, "%T", "Point Get Ball", client, Stats[client][POINTS], itd_points_pickball);
+				CPrintToChat(client, "%T", "Point Get Ball", client, Stats[client].POINTS, itd_points_pickball);
 		}
 	}
 	
@@ -2678,10 +2678,10 @@ public Action Hook_SetTransmit(int iEntity, int iClient)
 
 void setFlags(int edict)
 {
-    if (GetEdictFlags(edict) & FL_EDICT_ALWAYS)
-    {
-        SetEdictFlags(edict, (GetEdictFlags(edict) ^ FL_EDICT_ALWAYS));
-    }
+		if (GetEdictFlags(edict) & FL_EDICT_ALWAYS)
+		{
+				SetEdictFlags(edict, (GetEdictFlags(edict) ^ FL_EDICT_ALWAYS));
+		}
 }
 
 void RemoveBall()
@@ -2756,17 +2756,17 @@ void DropBall(int client)
 	// Stats
 	if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 	{
-		Stats[client][DROPBALL]++;		
+		Stats[client].DROPBALL++;		
 		
 		if(btd_points_enabled)
 		{
-			Stats[client][POINTS] -= itd_points_dropball;
+			Stats[client].POINTS -= itd_points_dropball;
 			
-			if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
-				Stats[client][POINTS] = itd_points_min;
+			if(btd_points_min_enabled && Stats[client].POINTS < itd_points_min)
+				Stats[client].POINTS = itd_points_min;
 				
 			if(itd_points_dropball != 0)
-				CPrintToChat(client, "%T", "Point Drop Ball", client, Stats[client][POINTS], itd_points_dropball);
+				CPrintToChat(client, "%T", "Point Drop Ball", client, Stats[client].POINTS, itd_points_dropball);
 		}
 	}
 	
@@ -2922,14 +2922,14 @@ void GoalBall(int client)
 	// Stats
 	if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 	{
-		Stats[client][TOUCHDOWN]++;	
+		Stats[client].TOUCHDOWN++;	
 		
 		if(btd_points_enabled)
 		{
-			Stats[client][POINTS] += itd_points_td;
+			Stats[client].POINTS += itd_points_td;
 		
 			if(itd_points_td != 0)
-				CPrintToChat(client, "%T", "Point Touchdown", client, Stats[client][POINTS], itd_points_td);
+				CPrintToChat(client, "%T", "Point Touchdown", client, Stats[client].POINTS, itd_points_td);
 		}
 	}
 	
@@ -3413,26 +3413,26 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			// stats enable
 			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 			{
-				Stats[client][DEATHS]++;
+				Stats[client].DEATHS++;
 				
 				if(IsValidClient(assister))
-					Stats[assister][ASSISTS]++;	
+					Stats[assister].ASSISTS++;	
 				
 				if(btd_points_enabled)
 				{
-					Stats[client][POINTS] -= itd_points_death;	
+					Stats[client].POINTS -= itd_points_death;	
 					
 					if(IsValidClient(assister))
-						Stats[assister][POINTS] += itd_points_assist;
+						Stats[assister].POINTS += itd_points_assist;
 					
-					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
-						Stats[client][POINTS] = itd_points_min;
+					if(btd_points_min_enabled && Stats[client].POINTS < itd_points_min)
+						Stats[client].POINTS = itd_points_min;
 					
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister].POINTS, itd_points_assist, attacker, client);
 			
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);	
+						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client].POINTS, itd_points_death);	
 				}						
 			}
 		}
@@ -3443,26 +3443,26 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			// stats enable
 			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 			{
-				Stats[client][DEATHS]++;
+				Stats[client].DEATHS++;
 				
 				if(IsValidClient(assister))
-					Stats[assister][ASSISTS]++;	
+					Stats[assister].ASSISTS++;	
 				
 				if(btd_points_enabled)
 				{
-					Stats[client][POINTS] -= itd_points_death;	
+					Stats[client].POINTS -= itd_points_death;	
 					
 					if(IsValidClient(assister))
-						Stats[assister][POINTS] += itd_points_assist;
+						Stats[assister].POINTS += itd_points_assist;
 
-					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
-						Stats[client][POINTS] = itd_points_min;
+					if(btd_points_min_enabled && Stats[client].POINTS < itd_points_min)
+						Stats[client].POINTS = itd_points_min;
 				
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister].POINTS, itd_points_assist, attacker, client);
 			
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);
+						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client].POINTS, itd_points_death);
 				}
 			}
 				
@@ -3498,32 +3498,32 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			// stats enable
 			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 			{
-				Stats[attacker][KILLS]++;
-				Stats[attacker][KILLBALL]++;
-				Stats[client][DEATHS]++;	
+				Stats[attacker].KILLS++;
+				Stats[attacker].KILLBALL++;
+				Stats[client].DEATHS++;	
 				
 				if(IsValidClient(assister))
-					Stats[assister][ASSISTS]++;	
+					Stats[assister].ASSISTS++;	
 					
 				if(btd_points_enabled)
 				{
-					Stats[attacker][POINTS] += itd_points_killball;
-					Stats[client][POINTS] -= itd_points_death;
+					Stats[attacker].POINTS += itd_points_killball;
+					Stats[client].POINTS -= itd_points_death;
 				
-					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
-						Stats[client][POINTS] = itd_points_min;
+					if(btd_points_min_enabled && Stats[client].POINTS < itd_points_min)
+						Stats[client].POINTS = itd_points_min;
 				
 					if(IsValidClient(assister))
-						Stats[assister][POINTS] += itd_points_assist;
+						Stats[assister].POINTS += itd_points_assist;
 				
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister].POINTS, itd_points_assist, attacker, client);
 			
 					if(itd_points_killball != 0)
-						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker][POINTS], itd_points_killball, client);
+						CPrintToChat(attacker, "%T", "Point Kill Ball", attacker, Stats[attacker].POINTS, itd_points_killball, client);
 			
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attacker);
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client].POINTS, itd_points_death, attacker);
 				}
 			}
 		
@@ -3566,34 +3566,34 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			// stats enable
 			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 			{
-				Stats[attacker][KILLS]++;
-				Stats[client][DEATHS]++;	
+				Stats[attacker].KILLS++;
+				Stats[client].DEATHS++;	
 				
 				if(IsValidClient(assister))
-					Stats[assister][ASSISTS]++;	
+					Stats[assister].ASSISTS++;	
 					
 				if(btd_points_enabled)
 				{
 					int score_dif_attacker = RoundToCeil(itd_points_kill * ftd_points_bonus);
 					int score_dif_assister = RoundToCeil(itd_points_assist * ftd_points_bonus);
 				
-					Stats[attacker][POINTS] += score_dif_attacker;
-					Stats[client][POINTS] -= itd_points_death;
+					Stats[attacker].POINTS += score_dif_attacker;
+					Stats[client].POINTS -= itd_points_death;
 				
-					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
-						Stats[client][POINTS] = itd_points_min;
+					if(btd_points_min_enabled && Stats[client].POINTS < itd_points_min)
+						Stats[client].POINTS = itd_points_min;
 				
 					if(IsValidClient(assister))
-						Stats[assister][POINTS] += score_dif_assister;
+						Stats[assister].POINTS += score_dif_assister;
 			
 					if(score_dif_assister != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], score_dif_assister, attacker ,client);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister].POINTS, score_dif_assister, attacker ,client);
 				
 					if(score_dif_attacker != 0)
-						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], score_dif_attacker, client);
+						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker].POINTS, score_dif_attacker, client);
 
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attacker);
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client].POINTS, itd_points_death, attacker);
 				}
 			}
 		}
@@ -3607,31 +3607,31 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			// stats enable
 			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 			{
-				Stats[attacker][KILLS]++;
-				Stats[client][DEATHS]++;
+				Stats[attacker].KILLS++;
+				Stats[client].DEATHS++;
 				
 				if(IsValidClient(assister))
-					Stats[assister][ASSISTS]++;	
+					Stats[assister].ASSISTS++;	
 				
 				if(btd_points_enabled)
 				{
-					Stats[attacker][POINTS] += itd_points_kill;
-					Stats[client][POINTS] -= itd_points_death;
+					Stats[attacker].POINTS += itd_points_kill;
+					Stats[client].POINTS -= itd_points_death;
 				
-					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
-						Stats[client][POINTS] = itd_points_min;
+					if(btd_points_min_enabled && Stats[client].POINTS < itd_points_min)
+						Stats[client].POINTS = itd_points_min;
 				
 					if(IsValidClient(assister))
-						Stats[assister][POINTS] += itd_points_assist;
+						Stats[assister].POINTS += itd_points_assist;
 				
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister].POINTS, itd_points_assist, attacker, client);
 				
 					if(itd_points_kill != 0)
-						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker][POINTS], itd_points_kill, client);
+						CPrintToChat(attacker, "%T", "Point Kill", attacker, Stats[attacker].POINTS, itd_points_kill, client);
 				
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Death", client, Stats[client][POINTS], itd_points_death, attacker);
+						CPrintToChat(client, "%T", "Point Death", client, Stats[client].POINTS, itd_points_death, attacker);
 				}
 			}
 		}
@@ -3642,26 +3642,26 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 			// stats enable
 			if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
 			{
-				Stats[client][DEATHS]++;	
+				Stats[client].DEATHS++;	
 				
 				if(IsValidClient(assister))
-					Stats[assister][ASSISTS]++;	
+					Stats[assister].ASSISTS++;	
 					
 				if(btd_points_enabled)
 				{
-					Stats[client][POINTS] -= itd_points_death;
+					Stats[client].POINTS -= itd_points_death;
 				
-					if(btd_points_min_enabled && Stats[client][POINTS] < itd_points_min)
-						Stats[client][POINTS] = itd_points_min;
+					if(btd_points_min_enabled && Stats[client].POINTS < itd_points_min)
+						Stats[client].POINTS = itd_points_min;
 				
 					if(IsValidClient(assister))
-						Stats[assister][POINTS] += itd_points_assist;
+						Stats[assister].POINTS += itd_points_assist;
 			
 					if(itd_points_assist != 0 && IsValidClient(assister))
-						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister][POINTS], itd_points_assist, attacker, client);
+						CPrintToChat(assister, "%T", "Point Assist", assister, Stats[assister].POINTS, itd_points_assist, attacker, client);
 			
 					if(itd_points_death != 0)
-						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client][POINTS], itd_points_death);
+						CPrintToChat(client, "%T", "Point Suicide", client, Stats[client].POINTS, itd_points_death);
 				}
 			}
 		}
@@ -4457,17 +4457,17 @@ public Action Event_HalfTime(Handle event, const char[] name, bool dontBroadcast
 // Block player use "e" to pick up weapon.
 public Action OnWeaponCanUse(int client, int weapon) 
 {
-    if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
-    
-    return Plugin_Continue; 
+		if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
+		
+		return Plugin_Continue; 
 }
 
 // Block player drop weapon.
 public Action OnWeaponDrop(int client, int weapon) 
 {
-    if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
-    
-    return Plugin_Continue; 
+		if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
+		
+		return Plugin_Continue; 
 }  
 
 
@@ -4481,7 +4481,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		buttons &= ~IN_ATTACK;
 		return Plugin_Changed;
 	}
-    
+		
 	if(RoundEnd && client!= Touchdowner && buttons & IN_ATTACK2)
 	{
 		buttons &= ~IN_ATTACK2;
@@ -4627,14 +4627,14 @@ public void SQL_LoadClientStats(Database db, DBResultSet results, const char[] e
 		
 		else
 		{
-			Stats[client][POINTS] = results.FetchInt(3);
-			Stats[client][KILLS] = results.FetchInt(4);
-			Stats[client][DEATHS] = results.FetchInt(5);
-			Stats[client][ASSISTS] = results.FetchInt(6);
-			Stats[client][TOUCHDOWN] = results.FetchInt(7);
-			Stats[client][GETBALL] = results.FetchInt(8);
-			Stats[client][DROPBALL] = results.FetchInt(9);
-			Stats[client][KILLBALL] = results.FetchInt(10);
+			Stats[client].POINTS = results.FetchInt(3);
+			Stats[client].KILLS = results.FetchInt(4);
+			Stats[client].DEATHS = results.FetchInt(5);
+			Stats[client].ASSISTS = results.FetchInt(6);
+			Stats[client].TOUCHDOWN = results.FetchInt(7);
+			Stats[client].GETBALL = results.FetchInt(8);
+			Stats[client].DROPBALL = results.FetchInt(9);
+			Stats[client].KILLBALL = results.FetchInt(10);
 		}
 	}
 }
@@ -4666,14 +4666,14 @@ void SaveClientStats(int client)
 	"UPDATE `%s` SET name = '%N', points = '%i', kills = '%i', deaths='%i', assists='%i', touchdown='%i', getball='%i', dropball='%i',killball='%i' WHERE steamid = '%s';",
 	std_stats_table_name,
 	client,
-	Stats[client][POINTS],
-	Stats[client][KILLS],
-	Stats[client][DEATHS],
-	Stats[client][ASSISTS],
-	Stats[client][TOUCHDOWN],
-	Stats[client][GETBALL],
-	Stats[client][DROPBALL],
-	Stats[client][KILLBALL],
+	Stats[client].POINTS,
+	Stats[client].KILLS,
+	Stats[client].DEATHS,
+	Stats[client].ASSISTS,
+	Stats[client].TOUCHDOWN,
+	Stats[client].GETBALL,
+	Stats[client].DROPBALL,
+	Stats[client].KILLBALL,
 	sCommunityID);
 	
 	ddb.Query(SQL_SaveCallback, SaveQuery, GetClientUserId(client))
@@ -4714,8 +4714,8 @@ public Action Command_Rank(int client,int args)
 	
 	/*
 	PrintToChat(client, "Point %d, Kill %d, Deaths %d, Assists %d, TD %d, getball %d, dropball %d, killball %d"
-	, Stats[client][POINTS], Stats[client][KILLS], Stats[client][DEATHS], Stats[client][ASSISTS], Stats[client][TOUCHDOWN], 
-	Stats[client][GETBALL], Stats[client][DROPBALL], Stats[client][KILLBALL]);
+	, Stats[client].POINTS, Stats[client].KILLS, Stats[client].DEATHS, Stats[client].ASSISTS, Stats[client].TOUCHDOWN, 
+	Stats[client].GETBALL, Stats[client].DROPBALL, Stats[client].KILLBALL);
 	*/
 	
 	return Plugin_Handled;
@@ -4751,7 +4751,7 @@ public void SQL_RankCallback(Database db, DBResultSet results, const char[] erro
 		
 		if(StrEqual(Auth_receive, sCommunityID))
 		{
-			CPrintToChat(client, "%T", "Command Rank", client, i, iTotalPlayers, Stats[client][POINTS], Stats[client][KILLS], Stats[client][DEATHS], Stats[client][ASSISTS], Stats[client][TOUCHDOWN]);
+			CPrintToChat(client, "%T", "Command Rank", client, i, iTotalPlayers, Stats[client].POINTS, Stats[client].KILLS, Stats[client].DEATHS, Stats[client].ASSISTS, Stats[client].TOUCHDOWN);
 			break;
 		}
 	}
@@ -4817,27 +4817,27 @@ public void SQL_StatsCallback(Database db, DBResultSet results, const char[] err
 	
 	Format(temp, sizeof(temp), "%T \n", "Basic Stats", client);
 	StrCat(text, sizeof(text), temp);
-	Format(temp, sizeof(temp), "%T \n \n", "Stats 1", client, Stats[client][POINTS], i, iTotalPlayers);
+	Format(temp, sizeof(temp), "%T \n \n", "Stats 1", client, Stats[client].POINTS, i, iTotalPlayers);
 	StrCat(text, sizeof(text), temp);
 	statsmenu.AddItem("", text);
 	text="";
 	
 	Format(temp, sizeof(temp), "%T \n", "Kill Stats", client);
 	StrCat(text, sizeof(text), temp);
-	float kills = IntToFloat(Stats[client][KILLS]);
-	int ideaths = Stats[client][DEATHS];
+	float kills = IntToFloat(Stats[client].KILLS);
+	int ideaths = Stats[client].DEATHS;
 	int deaths;
 	if(ideaths == 0)
 		deaths = 1;
 	else deaths = ideaths;
-	Format(temp, sizeof(temp), "%T \n \n", "Stats 2", client, Stats[client][KILLS], Stats[client][DEATHS], Stats[client][ASSISTS], kills/deaths);
+	Format(temp, sizeof(temp), "%T \n \n", "Stats 2", client, Stats[client].KILLS, Stats[client].DEATHS, Stats[client].ASSISTS, kills/deaths);
 	StrCat(text, sizeof(text), temp);
 	statsmenu.AddItem("", text);
 	text="";
 	
 	Format(temp, sizeof(temp), "%T \n", "Ball Stats", client);
 	StrCat(text, sizeof(text), temp);
-	Format(temp, sizeof(temp), "%T \n \n", "Stats 3", client, Stats[client][TOUCHDOWN], Stats[client][DROPBALL], Stats[client][GETBALL], Stats[client][KILLBALL]);
+	Format(temp, sizeof(temp), "%T \n \n", "Stats 3", client, Stats[client].TOUCHDOWN, Stats[client].DROPBALL, Stats[client].GETBALL, Stats[client].KILLBALL);
 	StrCat(text, sizeof(text), temp);
 	statsmenu.AddItem("", text);
 	text="";
@@ -5296,13 +5296,13 @@ public int TopGetball_MenuHandler(Menu menu, MenuAction action, int client,int p
 public Action Dissolve(Handle timer, any client)
 {
 	if (!IsValidEntity(client))	return;
-    
+		
 	int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
 	if (ragdoll < 0)	return;
-    
+		
 	char dname[32];
 	Format(dname, sizeof(dname), "dis_%d", client);
-  
+	
 	int ent = CreateEntityByName("env_entity_dissolver");
 	if (ent > 0)
 	{
