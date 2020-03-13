@@ -130,6 +130,9 @@ ConVar td_stats_min;
 ConVar td_stats_table_name;
 ConVar td_points_enabled;
 
+ConVar td_bgm_enabled;
+ConVar td_quake_enabled;
+
 float ftd_respawn;
 float ftd_reset;
 int itd_ballposition;
@@ -139,6 +142,9 @@ bool btd_healthshot;
 bool btd_stats_enabled;
 int itd_stats_min;
 bool btd_points_enabled;
+
+bool btd_bgm_enabled;
+bool btd_quake_enabled;
 
 char std_stats_table_name[200];
 
@@ -193,11 +199,11 @@ int score_t2;
 
 // Weapons
 // From boomix's capture the flag
-char PrimaryWeapon[18][50] = 
+char PrimaryWeapon[19][50] = 
 {
 	"weapon_m4a1", "weapon_m4a1_silencer", "weapon_ak47", "weapon_aug", "weapon_bizon", "weapon_famas", 
 	"weapon_galilar", "weapon_mac10",
-	"weapon_mag7", "weapon_mp7", "weapon_mp9", "weapon_nova", "weapon_p90", "weapon_sawedoff",
+	"weapon_mag7", "weapon_mp7", "weapon_mp5sd", "weapon_mp9", "weapon_nova", "weapon_p90", "weapon_sawedoff",
 	"weapon_sg556", "weapon_ssg08", "weapon_ump45", "weapon_xm1014"
 };
 
@@ -244,7 +250,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento",
-	version = "2.9",
+	version = "2.10",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -301,6 +307,9 @@ public void OnPluginStart()
 	td_stats_min = CreateConVar("sm_touchdown_stats_min",  "4", "Min player to count stats.", FCVAR_NOTIFY, true, 0.0);
 	td_stats_table_name = CreateConVar("sm_touchdown_stats_table",  "touchdown", "MySQL table name for touchdown.");
 	
+	td_bgm_enabled = CreateConVar("sm_touchdown_bgm_enabled",  "1", "Enable BGM or not?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	td_quake_enabled = CreateConVar("sm_touchdown_quake_enabled",  "1", "Enable quake sounds or not? (all kill sounds)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+
 	// Points cvar
 	// http://s4league.wikia.com/wiki/Touchdown#Scoring
 	td_points_enabled = CreateConVar("sm_touchdown_points_enabled",  "0", "Enable points or not?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
@@ -340,6 +349,9 @@ public void OnPluginStart()
 	td_stats_min.AddChangeHook(OnConVarChanged);
 	td_stats_table_name.GetString(std_stats_table_name, sizeof(std_stats_table_name));
 	
+	td_bgm_enabled.AddChangeHook(OnConVarChanged);
+	td_quake_enabled.AddChangeHook(OnConVarChanged);
+
 	td_points_enabled.AddChangeHook(OnConVarChanged);
 	td_points_td.AddChangeHook(OnConVarChanged);
 	td_points_kill.AddChangeHook(OnConVarChanged);
@@ -373,8 +385,13 @@ public void OnPluginStart()
 		if(IsValidClient(i) && !IsFakeClient(i))	OnClientCookiesCached(i);
 	}
 	*/
+
+	RegConsoleCmd("sm_tdtest", TEST)
 }
 
+public Action TEST (int client, int args) {
+	PrintToChat(client, "%d, %d, %d, %d", IsPlayerAlive(client), IsValidEntity(client), GetEntityMoveType(client), GetClientTeam(client));
+}
 // Create natives and forwards
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -559,6 +576,9 @@ public void OnConfigsExecuted()
 	btd_stats_enabled = td_stats_enabled.BoolValue;
 	itd_stats_min = td_stats_min.IntValue;
 	btd_points_enabled = td_stats_enabled.BoolValue;
+
+	btd_bgm_enabled = td_bgm_enabled.BoolValue;
+	btd_quake_enabled = td_quake_enabled.BoolValue;
 	
 	itd_points_td = td_points_td.IntValue;
 	itd_points_kill = td_points_kill.IntValue;
@@ -808,6 +828,13 @@ public void OnMapStart()
 	AddFileToDownloadsTable("sound/touchdown/bgm/Come_On.mp3");
 	AddFileToDownloadsTable("sound/touchdown/bgm/Starfish.mp3");
 	AddFileToDownloadsTable("sound/touchdown/bgm/NB_Power.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Alice.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Chase_yourself.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Dark_ages.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Dark_lightning.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Hypersonic.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Never_give_up.mp3");
+	AddFileToDownloadsTable("sound/touchdown/bgm/Real_overdrive.mp3");
 	
 	// Precache Model
 	PrecacheModel(BallModelPath, true);
@@ -920,6 +947,13 @@ public void OnMapStart()
 	FakePrecacheSound("*/touchdown/bgm/Come_On.mp3");
 	FakePrecacheSound("*/touchdown/bgm/Starfish.mp3");
 	FakePrecacheSound("*/touchdown/bgm/NB_Power.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Alice.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Chase_yourself.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Dark_ages.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Dark_lightning.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Hypersonic.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Never_give_up.mp3");
+	FakePrecacheSound("*/touchdown/bgm/Real_overdrive.mp3");
 	
 	// Ball
 	FakePrecacheSound("*/touchdown/pokeball_bounce.mp3");
@@ -1003,6 +1037,7 @@ public Action Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadc
 	
 	if (!IsFakeClient(client))
 		CreateTimer(0.1, ShowWeaponMenu, client);
+	else GiveRandomWeapon(client);
 	
 	CreateTimer(0.1, FreezeClient, client);
 	EmitSoundToClient(client, "*/touchdown/player_respawn.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
@@ -1204,6 +1239,7 @@ void ShowPrimaryWeaponMenu(int client)
 	menu.AddItem("weapon_mac10", "MAC-10");
 	menu.AddItem("weapon_mp9", "MP9");
 	menu.AddItem("weapon_mp7", "MP7");
+	menu.AddItem("weapon_mp5sd", "MP5-SD");
 	menu.AddItem("weapon_ump45", "UMP45");
 	menu.AddItem("weapon_p90", "P90");
 
@@ -1252,7 +1288,7 @@ public int MenuHandlers_SecondaryWeapon(Menu menu2, MenuAction action, int clien
 			char info[32];
 			menu2.GetItem(item, info, sizeof(info));
 			
-			if(!HasWeapon(client, true) && IsPlayerAlive(client))	GivePlayerItem(client, info);
+			if(!HasWeapon(client, 2) && IsPlayerAlive(client))	GivePlayerItem(client, info);
 			
 			g_LastSecondaryWeapon[client] = info;
 			
@@ -1308,29 +1344,25 @@ public void RemoveAllWeapons(int client, bool RemoveKnife)
 	}
 }
 
-bool HasWeapon(int client, bool Secondary = false)
+bool HasWeapon(int client, int type = 3)
 {
-	if(Secondary)
-	{
-		int weapon2 = GetPlayerWeaponSlot(client, CS_SLOT_SECONDARY);
-		if(weapon2 > 0)	return true;
-		else	return false;
-	} 
-	else 
-	{
-		int weapon = GetPlayerWeaponSlot(client, CS_SLOT_PRIMARY);
-		int weapon2 = GetPlayerWeaponSlot(client, CS_SLOT_SECONDARY);
-		if(weapon > 0 || weapon2 > 0)	return true;
-		else	return false;
-	}
+	int weapon = GetPlayerWeaponSlot(client, CS_SLOT_PRIMARY);
+	int weapon2 = GetPlayerWeaponSlot(client, CS_SLOT_SECONDARY);
+
+	// type 1, only check primary
+	if (type == 1 && weapon > 0) return true;
+	// type 2, only check secondary
+	else if (type == 2 && weapon2 > 0) return true;
+	else if (type == 3 && (weapon > 0 || weapon2 > 0)) return true
+	else return false;
 }
 
 void GiveRandomWeapon(int client)
 {
-	int primary = GetRandomInt(0, 17);
+	int primary = GetRandomInt(0, 18);
 	int secondary = GetRandomInt(0, 9);
 	
-	if(IsPlayerAlive(client) && !HasWeapon(client))
+	if((IsPlayerAlive(client) && !HasWeapon(client, 1)) || IsFakeClient(client))
 	{
 		GivePlayerItem(client, PrimaryWeapon[primary]);
 		GivePlayerItem(client, SecondaryWeapon[secondary]);	
@@ -1408,7 +1440,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	}
 		
 	// Play BGM
-	CreateTimer(0.5, PlayBGMTimer);
+	if(btd_bgm_enabled) CreateTimer(0.5, PlayBGMTimer);
 	
 	// round countdown
 	roundtime = FindConVar("mp_roundtime").FloatValue;
@@ -1424,7 +1456,7 @@ public Action PlayBGMTimer(Handle tmr, any client)
 		{
 			StopBGM(i);
 			
-			BGM = GetRandomInt(1, 14)
+			BGM = GetRandomInt(1, 21)
 			
 			hBGMTimer[i] = CreateTimer(0.5, BGMTimer, i);
 		}
@@ -1436,9 +1468,9 @@ public Action StartGameTimer(Handle tmr, any client)
 	for (int i = 1; i <= MaxClients; i++) 
 	{ 
 				if(IsValidClient(i) && !IsFakeClient(i))
-				{ 
-					 PrintHintText(i, "%T", "Start Game", i);
-				} 
+				{
+					PrintHintText(i, "%T", "Start Game", i);
+				}
 		} 
 }
 
@@ -1543,6 +1575,55 @@ public Action BGMTimer(Handle tmr, any client)
 			EmitSoundToClient(client, "*/touchdown/bgm/NB_Power.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
 			hBGMTimer[client] = CreateTimer(125.0, BGMTimer, client);
 		}
+
+		else if(BGM == 15)	
+		{
+			CPrintToChat(client, "%T", "BGM 15", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Alice.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(181.0, BGMTimer, client);
+		}
+
+		else if(BGM == 16)	
+		{
+			CPrintToChat(client, "%T", "BGM 16", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Chase_yourself.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(140.0, BGMTimer, client);
+		}
+
+		else if(BGM == 17)	
+		{
+			CPrintToChat(client, "%T", "BGM 17", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Dark_ages.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(160.0, BGMTimer, client);
+		}
+
+		else if(BGM == 18)	
+		{
+			CPrintToChat(client, "%T", "BGM 18", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Dark_lightning.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(119.0, BGMTimer, client);
+		}
+
+		else if(BGM == 19)	
+		{
+			CPrintToChat(client, "%T", "BGM 19", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Hypersonic.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(80.0, BGMTimer, client);
+		}
+
+		else if(BGM == 20)	
+		{
+			CPrintToChat(client, "%T", "BGM 20", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Never_give_up.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(225.0, BGMTimer, client);
+		}
+
+		else if(BGM == 21)	
+		{
+			CPrintToChat(client, "%T", "BGM 21", client);
+			EmitSoundToClient(client, "*/touchdown/bgm/Real_overdrive.mp3", SOUND_FROM_PLAYER, SNDCHAN_STATIC, SNDLEVEL_NONE, _, g_fvol[client]);
+			hBGMTimer[client] = CreateTimer(121.0, BGMTimer, client);
+		}
 	}
 }
 
@@ -1616,6 +1697,41 @@ void StopBGM(int client)
 	else if(BGM == 14)	
 	{
 		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/NB_Power.mp3");	
+	}
+
+	else if(BGM == 15)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Alice.mp3");
+	}
+
+	else if(BGM == 16)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Chase_yourself.mp3");
+	}
+
+	else if(BGM == 17)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Dark_ages.mp3");
+	}
+
+	else if(BGM == 18)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Dark_lightning.mp3");
+	}
+
+	else if(BGM == 19)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Hypersonic.mp3");
+	}
+
+	else if(BGM == 20)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Never_give_up.mp3");
+	}
+
+	else if(BGM == 21)	
+	{
+		StopSound(client, SNDCHAN_STATIC, "*/touchdown/bgm/Real_overdrive.mp3");
 	}
 }
 
@@ -2213,6 +2329,7 @@ public void OnStartTouch(int ent, int client)
 		{
 			GetBall(client);
 		}
+		else return;
 		
 		// Play Sound
 		for (int i = 1; i <= MaxClients; i++)
@@ -3355,7 +3472,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		CreateTimer(0.2, Dissolve, client);
 		
 		// Not suicide
-		if(client != attacker && IsValidClient(attacker))
+		if(client != attacker && IsValidClient(attacker) && btd_quake_enabled)
 		{
 			// Play kill sound
 			switch(GetRandomInt(1,8))
@@ -4078,7 +4195,7 @@ public Action Command_Join(int client, const char[] command, int argc)
 	char sJoining[8];
 	GetCmdArg(1, sJoining, sizeof(sJoining));
 	int iJoining = StringToInt(sJoining);
-	
+
 	if(BallHolder == client)
 		DropBall(client);
 	
@@ -4087,26 +4204,14 @@ public Action Command_Join(int client, const char[] command, int argc)
 	{
 		// Unfreeze if player join spec after someone touchdown
 		if(RoundEnd)
-			SetEntityMoveType(client, MOVETYPE_NOCLIP);
-			
-		return Plugin_Continue;
+			SetEntityMoveType(client, MOVETYPE_WALK);
 	}
 
 	int iTeam = GetClientTeam(client);
 	
-	// Join same team
-	if(iJoining == iTeam)
-		return Plugin_Handled;
-	
-	// Join different team
-	else
+	if(iJoining != iTeam && (iJoining == CS_TEAM_CT || iJoining == CS_TEAM_T))
 	{
-		SetEntProp(client, Prop_Send, "m_iTeamNum", iJoining);
-		ForcePlayerSuicide(client);
-		
 		// Restartgame when someone play alone and new player join
-		if(GetTeamClientCount(TR) == 0)
-		
 		// only 1 player and he join different team
 		// joined CT, and TR = 0
 		if(iJoining == CT && GetTeamClientCount(TR) == 0)
@@ -4159,6 +4264,33 @@ public void OnConVarChanged(ConVar convar, const char[] oldValue, const char[] n
 	else if (convar == td_ballposition) 
 	{
 		itd_ballposition = td_ballposition.IntValue;
+	}
+	else if (convar == td_bgm_enabled) 
+	{
+		btd_bgm_enabled = td_bgm_enabled.BoolValue;
+
+		for (int i = 1; i <= MaxClients; i++)
+		{
+			if (IsValidClient(i) && !IsFakeClient(i)) 
+			{
+				// Stop playing bgm
+				StopBGM(i);
+				
+				// Reset bgm timer
+				if (hBGMTimer[i] != INVALID_HANDLE)
+				{
+					KillTimer(hBGMTimer[i]);
+				}
+				hBGMTimer[i] = INVALID_HANDLE;
+				
+				// Play bgm
+				if(btd_bgm_enabled) hBGMTimer[i] = CreateTimer(0.5, BGMTimer, i);
+			}
+		}
+	}
+	else if (convar == td_quake_enabled) 
+	{
+		btd_quake_enabled = td_quake_enabled.BoolValue;
 	}
 	else if (convar == td_stats_enabled) 
 	{
