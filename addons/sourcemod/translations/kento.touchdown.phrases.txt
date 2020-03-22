@@ -118,6 +118,55 @@
 		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}NieN - NB Power"
 		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}NieN - NB Power"
 	}
+
+	"BGM 15"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}S4 League - Alice"
+		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}S4 League - Alice"
+	}
+
+	"BGM 16"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}Planetboom - Chase Yourself"
+		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}Planetboom - Chase Yourself"
+	}
+
+	"BGM 17"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}XeoN - Dark Ages"
+		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}XeoN - Dark Ages"
+	}
+
+	"BGM 18"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}AstroKid - Dark Lightning"
+		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}AstroKid - Dark Lightning"
+	}
+
+	"BGM 19"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}Forte Escape - Hypersonic"
+		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}Forte Escape - Hypersonic"
+	}
+
+	"BGM 20"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}S4 League - Never Give Up"
+		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}S4 League - Never Give Up"
+	}
+
+	"BGM 21"
+	{
+		"#format"		""
+		"en"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}NieN - Real Overdrive"
+		"zho"			"{GREEN}[TouchDown] {NORMAL}BGM: {PINK}NieN - Real Overdrive"
+	}
 	
 	"Volume 1"
 	{
