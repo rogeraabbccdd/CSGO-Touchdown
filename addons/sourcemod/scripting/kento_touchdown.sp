@@ -137,7 +137,7 @@ float ftd_respawn;
 float ftd_reset;
 int itd_ballposition;
 bool btd_taser;
-bool btd_healthshot;
+int itd_healthshot;
 
 bool btd_stats_enabled;
 int itd_stats_min;
@@ -181,6 +181,7 @@ ConVar mp_free_armor;
 ConVar mp_match_restart_delay;
 ConVar mp_win_panel_display_time;
 ConVar mp_restartgame;
+ConVar ammo_item_limit_healthshot;
 
 ConVar mp_ignore_round_win_conditions;
 int i_mp_ignore_round_win_conditions;
@@ -250,7 +251,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down",
 	author = "Kento",
-	version = "2.11",
+	version = "2.12",
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
@@ -301,7 +302,7 @@ public void OnPluginStart()
 	td_ballposition = CreateConVar("sm_touchdown_ball_position",  "1", "Where to attach the ball when player get the ball? 0 = front, 1 = head", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	
 	td_taser = CreateConVar("sm_touchdown_taser",  "1", "Give player taser?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	td_healthshot = CreateConVar("sm_touchdown_healthshot",  "1", "Give player healthshot?", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	td_healthshot = CreateConVar("sm_touchdown_healthshot",  "1", "How many healthshot player have when spawn?", FCVAR_NOTIFY, true, 0.0);
 	
 	td_stats_enabled = CreateConVar("sm_touchdown_stats_enabled",  "0", "Enable stats or not? (MYSQL only!)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	td_stats_min = CreateConVar("sm_touchdown_stats_min",  "4", "Min player to count stats.", FCVAR_NOTIFY, true, 0.0);
@@ -337,6 +338,7 @@ public void OnPluginStart()
 	mp_win_panel_display_time = FindConVar("mp_win_panel_display_time");
 	mp_restartgame = FindConVar("mp_restartgame");
 	mp_ignore_round_win_conditions = FindConVar("mp_ignore_round_win_conditions");
+	ammo_item_limit_healthshot = FindConVar("ammo_item_limit_healthshot");
 	
 	// Hook Cvar Change
 	td_respawn.AddChangeHook(OnConVarChanged);
@@ -374,6 +376,7 @@ public void OnPluginStart()
 	mp_match_restart_delay.AddChangeHook(OnConVarChanged);
 	mp_win_panel_display_time.AddChangeHook(OnConVarChanged);
 	mp_ignore_round_win_conditions.AddChangeHook(OnConVarChanged);
+	ammo_item_limit_healthshot.AddChangeHook(OnConVarChanged)
 	
 	mp_restartgame.AddChangeHook(Restart_Handler);
 	
@@ -566,7 +569,8 @@ public void OnConfigsExecuted()
 	ftd_reset = td_reset.FloatValue;
 	itd_ballposition = td_ballposition.IntValue;
 	btd_taser = td_taser.BoolValue;
-	btd_healthshot = td_healthshot.BoolValue;
+	itd_healthshot = td_healthshot.IntValue;
+	ammo_item_limit_healthshot.IntValue = itd_healthshot;
 	
 	btd_stats_enabled = td_stats_enabled.BoolValue;
 	itd_stats_min = td_stats_min.IntValue;
@@ -1064,7 +1068,9 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 		
 		if(btd_taser)	GivePlayerItem(client, "weapon_taser");
 		
-		if(btd_healthshot)	GivePlayerItem(client, "weapon_healthshot");
+		for(int i=0;i<itd_healthshot;i++) {
+			GivePlayerItem(client, "weapon_healthshot");
+		}
 			
 		GivePlayerItem(client, g_LastPrimaryWeapon[client]);
 		GivePlayerItem(client, g_LastSecondaryWeapon[client]);
@@ -1077,7 +1083,9 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 		
 		if(btd_taser)	GivePlayerItem(client, "weapon_taser");
 		
-		if(btd_healthshot)	GivePlayerItem(client, "weapon_healthshot");
+		for(int i=0;i<itd_healthshot;i++) {
+			GivePlayerItem(client, "weapon_healthshot");
+		}
 		
 		// Always random
 		if(i_RandomWeapons[client] == 2)	GiveRandomWeapon(client);
@@ -1106,7 +1114,9 @@ public Action ShowWeaponMenu(Handle tmr, any client)
 		
 		if(btd_taser)	GivePlayerItem(client, "weapon_taser");
 		
-		if(btd_healthshot)	GivePlayerItem(client, "weapon_healthshot");
+		for(int i=0;i<itd_healthshot;i++) {
+			GivePlayerItem(client, "weapon_healthshot");
+		}
 			
 		ShowMainMenu(client);
 	}
@@ -4357,7 +4367,8 @@ public void OnConVarChanged(ConVar convar, const char[] oldValue, const char[] n
 	}
 	else if (convar == td_healthshot) 
 	{
-		btd_healthshot = td_healthshot.BoolValue;
+		itd_healthshot = td_healthshot.IntValue;
+		ammo_item_limit_healthshot.IntValue = itd_healthshot;
 	}
 	else if (convar == mp_freezetime)
 	{
@@ -4394,6 +4405,10 @@ public void OnConVarChanged(ConVar convar, const char[] oldValue, const char[] n
 	else if (convar == mp_ignore_round_win_conditions)
 	{
 		mp_ignore_round_win_conditions.IntValue = i_mp_ignore_round_win_conditions;
+	}
+	else if(convar == ammo_item_limit_healthshot)
+	{
+		ammo_item_limit_healthshot.IntValue = itd_healthshot;
 	}
 }
 
