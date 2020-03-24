@@ -33,6 +33,7 @@ int BallHolder;
 int PlayerBallModel;
 int DropBallModel;
 int Touchdowner;
+int MVPs[MAXPLAYERS + 1];
 
 int BallDroperTeam;
 
@@ -249,7 +250,7 @@ int iTotalPlayers;
 
 public Plugin myinfo =
 {
-	name = "[CS:GO] Touch Down",
+	name = "[CS:GO] Touchdown Gamemode",
 	author = "Kento",
 	version = "2.12",
 	description = "Gamemode from S4 League",
@@ -288,6 +289,7 @@ public void OnPluginStart()
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("cs_win_panel_match", Event_WinPanelMatch);
 	HookEvent("announce_phase_end", Event_HalfTime);
+	HookEvent("round_mvp", Event_MVP, EventHookMode_Pre);
 	
 	//https://github.com/mukunda-/rxg-plugins/blob/fc533fcc9aeab3715b89d1a5c99905deb9a17865/gamefixes/restart_fix.sp
 	HookEvent("cs_match_end_restart", Event_MatchRestart, EventHookMode_PostNoCopy);
@@ -1453,6 +1455,8 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	roundtime = FindConVar("mp_roundtime").FloatValue;
 	roundtime *= 60.0;
 	hRoundCountdown = CreateTimer(1.0, RoundCountdown, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+
+	SetMVPStars();
 }
 
 public Action PlayBGMTimer(Handle tmr, any client)
@@ -1773,7 +1777,8 @@ public void OnClientCookiesCached(int client)
 
 public void OnClientPostAdminCheck(int client)		
 {		
-	if((btd_stats_enabled || btd_points_enabled) && ddb != null)	LoadClientStats(client);		
+	if((btd_stats_enabled || btd_points_enabled) && ddb != null)	LoadClientStats(client);
+	if(IsValidClient(client))	MVPs[client] = 0;
 }
 
 public Action RoundCountdown(Handle tmr)
@@ -3039,9 +3044,6 @@ void GoalBall(int client)
 	
 	else if(GetClientTeam(client) == CT)
 		AcceptEntityInput(CTParticle, "Kill");
-		
-	// Give player 1 MVP star
-	CS_SetMVPCount(client, CS_GetMVPCount(client) + 1);
 	
 	// Stats
 	if(btd_stats_enabled && itd_stats_min <= GetCurrentPlayers())
@@ -3060,6 +3062,7 @@ void GoalBall(int client)
 	BallHolder = 0;
 	BallDroperTeam = 0;
 	Touchdowner = client;
+	MVPs[client]++;
 	
 	for (int i = 1; i <= MaxClients; i++)
 	{
@@ -3393,6 +3396,16 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	// Next round countdown
 	Nextroundtime = 15;
 	hNextRoundCountdown = CreateTimer(1.0, NextRoundCountdown, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+
+	// Set MVP Star
+	SetMVPStars();
+}
+
+void SetMVPStars () {
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsValidClient(i)) CS_SetMVPCount(i, MVPs[i]);
+	}
 }
 
 bool SetClientOverlay(int client, char[] strOverlay)
@@ -4100,16 +4113,14 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 
 public void OnClientDisconnect(int client)
 {
+	if(!IsValidClient(client))	return;
+
+	if(BallHolder == client)	DropBall(client);
+	
+	MVPs[client] = 0;
+
 	if(IsFakeClient(client))
 		return;
-	
-	if(!IsValidClient(client))
-		return;
-		
-	if(BallHolder == client)
-	{
-		DropBall(client);
-	}
 	
 	if (hBGMTimer[client] != INVALID_HANDLE)
 	{
@@ -4604,20 +4615,30 @@ public Action Event_HalfTime(Handle event, const char[] name, bool dontBroadcast
 	Switch = true;
 }
 
+// MVP
+public Action Event_MVP(Handle event, const char[] name, bool dontBroadcast)
+{
+	if(Touchdowner > 0)	{
+		SetEventInt(event, "userid", GetClientUserId(Touchdowner));
+		SetEventInt(event, "reason", 0);
+	}
+	return Plugin_Continue;
+}
+
 // Block player use "e" to pick up weapon.
 public Action OnWeaponCanUse(int client, int weapon) 
 {
-		if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
-		
-		return Plugin_Continue; 
+	if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
+	
+	return Plugin_Continue; 
 }
 
 // Block player drop weapon.
 public Action OnWeaponDrop(int client, int weapon) 
 {
-		if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
-		
-		return Plugin_Continue; 
+	if(GetClientButtons(client) & IN_USE)	return Plugin_Handled; 
+	
+	return Plugin_Continue; 
 }  
 
 
@@ -5019,7 +5040,6 @@ public Action Command_Top(int client,int args)
 	Format(TopMenutitle, sizeof(TopMenutitle), "%T", "Top Menu Title", client);
 	TopMenu.SetTitle(TopMenutitle);
 		
-	// Add No MVP
 	char points[512];
 	Format(points, sizeof(points), "%T", "Top 10 Points", client);
 	TopMenu.AddItem("points", points);
