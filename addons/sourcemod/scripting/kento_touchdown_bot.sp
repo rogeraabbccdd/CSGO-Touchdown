@@ -12,7 +12,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touch Down | Bot AI",
 	author = "Zeisen",
-	version = "1.0",
+	version = "1.1",
 	description = "Bot supports for TouchDown by Kento",
 	url = ""
 };
@@ -38,10 +38,13 @@ public void OnPluginStart()
 		SetFailState("Failed to found touchdown.games game config.");
 	
 	StartPrepSDKCall(SDKCall_Player);
-	PrepSDKCall_SetFromConf(hGameConf, SDKConf_Signature, "MoveTo");
+	if(!PrepSDKCall_SetFromConf(hGameConf, SDKConf_Signature, "MoveTo"))	SetFailState("Signature not found");
+
 	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_Pointer); // Move Position As Vector, Pointer
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain); // Move Type As Integer
 	hBotMoveTo = EndPrepSDKCall();
+
+	if(hBotMoveTo == INVALID_HANDLE)	SetFailState("Unable to prepare call");
 	
 	CreateTimer(2.0, Timer_BotMoveThink, _, TIMER_REPEAT);
 }
@@ -112,5 +115,3 @@ public void BotMoveTo(int client, float origin[3], _BotRouteType routeType)
 {
 	SDKCall(hBotMoveTo, client, origin, routeType);
 }
-
-
