@@ -4703,6 +4703,8 @@ public void OnSQLConnect(Handle owner, Handle hndl, const char[] error, any data
 	}
 
 	ddb = view_as<Database>(CloneHandle(hndl));
+
+	if(!ddb.SetCharset("utf8mb4"))  ddb.SetCharset("utf8");
 	
 	CreateTable();
 }
