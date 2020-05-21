@@ -252,7 +252,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Touchdown Gamemode",
 	author = "Kento",
-	version = "2.12", 
+	version = "2.13", 
 	description = "Gamemode from S4 League",
 	url = "https://github.com/rogeraabbccdd/CSGO-Touchdown"
 };
