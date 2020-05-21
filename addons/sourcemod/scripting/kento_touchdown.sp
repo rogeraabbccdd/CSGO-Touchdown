@@ -4793,8 +4793,10 @@ public void SQL_LoadClientStats(Database db, DBResultSet results, const char[] e
 				return;
 			}
 			
-			char InsertQuery[512];
-			Format(InsertQuery, sizeof(InsertQuery), "INSERT INTO `%s` VALUES(NULL,'%s','%N','%d','0','0','0','0','0','0','0');", std_stats_table_name, sCommunityID, client, itd_points_start);
+			char InsertQuery[512], playerName[128];
+			GetClientName(client, playerName, 128);
+			ddb.Escape(playerName, playerName, 128);
+			Format(InsertQuery, sizeof(InsertQuery), "INSERT INTO `%s` VALUES(NULL,'%s','%s','%d','0','0','0','0','0','0','0');", std_stats_table_name, sCommunityID, playerName, itd_points_start);
 			ddb.Query(SQL_InsertCallback, InsertQuery, GetClientUserId(client));
 		}
 		
@@ -4834,11 +4836,13 @@ void SaveClientStats(int client)
 		return;
 	}
 			
-	char SaveQuery[512];
+	char SaveQuery[512], playerName[128];
+	GetClientName(client, playerName, 128);
+	ddb.Escape(playerName, playerName, 128);
 	Format(SaveQuery, sizeof(SaveQuery),
-	"UPDATE `%s` SET name = '%N', points = '%i', kills = '%i', deaths='%i', assists='%i', touchdown='%i', getball='%i', dropball='%i',killball='%i' WHERE steamid = '%s';",
+	"UPDATE `%s` SET name = '%s', points = '%i', kills = '%i', deaths='%i', assists='%i', touchdown='%i', getball='%i', dropball='%i',killball='%i' WHERE steamid = '%s';",
 	std_stats_table_name,
-	client,
+	playerName,
 	Stats[client].POINTS,
 	Stats[client].KILLS,
 	Stats[client].DEATHS,
